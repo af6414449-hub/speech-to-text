@@ -27,17 +27,53 @@
       flex-direction: column;
       position: relative;
     }
-    .text {
+    .blocks {
       flex: 1;
-      border: none;
-      resize: none;
-      font-size: 20px;
-      line-height: 1.8;
-      outline: none;
-      font-family: inherit;
-      padding: 10px 0;
+      overflow-y: auto;
+      padding: 4px 0 12px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
-    .text::placeholder { color: #bbb; }
+    .block {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: 0.2s;
+      border-left: 4px solid #4CAF50;
+    }
+    .block:active { background: #e9ecef; }
+    .block.collapsed .block-text { 
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+    }
+    .block.expanded .block-text {
+      display: block;
+      white-space: pre-wrap;
+    }
+    .block-text {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      word-break: break-word;
+    }
+    .block-time {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+      display: block;
+    }
+    .empty-state {
+      color: #bbb;
+      text-align: center;
+      font-size: 16px;
+      margin-top: 40px;
+    }
     .buttons {
       display: flex;
       align-items: center;
@@ -45,6 +81,7 @@
       gap: 16px;
       padding-top: 16px;
       border-top: 1px solid #eee;
+      flex-shrink: 0;
     }
     .btn-clear {
       width: 56px;
@@ -116,13 +153,16 @@
       transition: 0.3s;
       pointer-events: none;
       white-space: nowrap;
+      z-index: 1000;
     }
     .toast.show { opacity: 1; }
   </style>
 </head>
 <body>
   <div class="app">
-    <textarea class="text" id="text" placeholder="Нажмите ▶ и говорите..."></textarea>
+    <div class="blocks" id="blocks">
+      <div class="empty-state">Нажмите ▶ и говорите</div>
+    </div>
     <div class="buttons">
       <button class="btn-clear" id="clear" disabled>✕</button>
       <button class="btn-save" id="save" disabled>💾</button>
@@ -133,18 +173,18 @@
 
   <script>
     (function() {
-      const text = document.getElementById('text');
+      const blocks = document.getElementById('blocks');
       const record = document.getElementById('record');
       const save = document.getElementById('save');
       const clear = document.getElementById('clear');
       const toast = document.getElementById('toast');
 
       let isRecording = false;
-      let finalText = '';
-      let interimText = '';
+      let currentText = '';
+      let blocksData = [];
       let recognition = null;
       let restartTimer = null;
-      let lastText = '';
+      let blockCounter = 0;
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -161,26 +201,55 @@
         toast._timer = setTimeout(() => toast.classList.remove('show'), 3000);
       }
 
-      function updateUI() {
-        // Кнопка записи
-        if (isRecording) {
-          record.textContent = '■';
-          record.className = 'btn-record active';
-        } else {
-          record.textContent = '▶';
-          record.className = 'btn-record';
+      function getTime() {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+      }
+
+      function renderBlocks() {
+        if (blocksData.length === 0) {
+          blocks.innerHTML = '<div class="empty-state">Нажмите ▶ и говорите</div>';
+          updateButtons();
+          return;
         }
 
-        // Текст
-        const display = finalText + (interimText ? ' ' + interimText : '');
-        if (text.value !== display) {
-          text.value = display;
-          text.scrollTop = text.scrollHeight;
-        }
+        let html = '';
+        blocksData.forEach((block, index) => {
+          const isCollapsed = block.collapsed !== false;
+          html += `
+            <div class="block ${isCollapsed ? 'collapsed' : 'expanded'}" data-index="${index}">
+              <div class="block-text">${escapeHtml(block.text)}</div>
+              <span class="block-time">${block.time}</span>
+            </div>
+          `;
+        });
+        blocks.innerHTML = html;
 
-        // Кнопки Сохранить и Очистить
-        const hasText = finalText.trim().length > 0;
-        if (hasText) {
+        // Клик по блоку — переключение
+        document.querySelectorAll('.block').forEach(el => {
+          el.addEventListener('click', function(e) {
+            const idx = parseInt(this.dataset.index);
+            if (!isNaN(idx) && blocksData[idx]) {
+              blocksData[idx].collapsed = !blocksData[idx].collapsed;
+              renderBlocks();
+            }
+          });
+        });
+
+        updateButtons();
+        blocks.scrollTop = blocks.scrollHeight;
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function updateButtons() {
+        const hasBlocks = blocksData.length > 0;
+        if (hasBlocks) {
           save.disabled = false;
           save.className = 'btn-save active';
           clear.disabled = false;
@@ -191,6 +260,17 @@
           clear.disabled = true;
           clear.className = 'btn-clear';
         }
+      }
+
+      function addBlock(text) {
+        if (!text.trim()) return;
+        blocksData.push({
+          text: text.trim(),
+          time: getTime(),
+          collapsed: true
+        });
+        currentText = '';
+        renderBlocks();
       }
 
       function startRec() {
@@ -215,26 +295,22 @@
               }
             }
 
-            // Android фикс: добавляем только если текст реально новый
             if (newFinal) {
-              // Проверяем, не заканчивается ли уже finalText на этот текст
-              if (!finalText.endsWith(newFinal)) {
-                finalText += newFinal;
+              if (!currentText.endsWith(newFinal)) {
+                currentText += newFinal;
               }
-              interimText = '';
             } else if (newInterim) {
-              interimText = newInterim;
+              // Показываем промежуточный текст во время записи
+              const displayText = currentText + (currentText ? ' ' : '') + newInterim;
+              // Временно показываем в отдельном блоке
+              showTempBlock(displayText);
             }
-
-            updateUI();
           };
 
           recognition.onerror = function(e) {
             if (e.error === 'not-allowed') {
               showToast('❌ Нет доступа к микрофону');
               stopRec();
-            } else if (e.error === 'no-speech') {
-              // игнорируем
             } else if (e.error === 'audio-capture') {
               showToast('❌ Микрофон недоступен');
               stopRec();
@@ -252,15 +328,35 @@
             } else {
               isRecording = false;
               recognition._manualStop = false;
-              updateUI();
+              // Сохраняем текущий текст как блок
+              if (currentText.trim()) {
+                addBlock(currentText);
+              }
+              renderBlocks();
             }
           };
         }
 
         isRecording = true;
         recognition._manualStop = false;
-        updateUI();
+        record.textContent = '■';
+        record.className = 'btn-record active';
         try { recognition.start(); } catch(_) {}
+      }
+
+      function showTempBlock(text) {
+        // Временно показываем промежуточный текст
+        if (blocksData.length === 0 || !blocksData[blocksData.length-1]._temp) {
+          blocksData.push({
+            text: text,
+            time: '...',
+            collapsed: false,
+            _temp: true
+          });
+        } else {
+          blocksData[blocksData.length-1].text = text;
+        }
+        renderBlocks();
       }
 
       function stopRec() {
@@ -270,7 +366,19 @@
           clearTimeout(restartTimer);
           try { recognition.stop(); } catch(_) {}
         }
-        updateUI();
+        record.textContent = '▶';
+        record.className = 'btn-record';
+        
+        // Убираем временный блок
+        if (blocksData.length > 0 && blocksData[blocksData.length-1]._temp) {
+          blocksData.pop();
+        }
+        
+        // Сохраняем финальный текст как блок
+        if (currentText.trim()) {
+          addBlock(currentText);
+        }
+        renderBlocks();
       }
 
       function toggleRec() {
@@ -279,8 +387,17 @@
       }
 
       function saveFile() {
-        const textContent = finalText.trim();
-        if (!textContent) {
+        if (blocksData.length === 0) {
+          showToast('❌ Нет текста');
+          return;
+        }
+
+        const text = blocksData
+          .filter(b => !b._temp)
+          .map(b => b.text)
+          .join('\n\n');
+
+        if (!text.trim()) {
           showToast('❌ Нет текста');
           return;
         }
@@ -292,14 +409,14 @@
 
         try {
           if (navigator.share) {
-            const file = new File([textContent], name, { type: 'text/plain' });
+            const file = new File([text], name, { type: 'text/plain' });
             navigator.share({ files: [file] }).then(() => {
               showToast('✅ Файл передан в "Поделиться"');
             }).catch(err => {
               if (err.name !== 'AbortError') showToast('❌ ' + err.message);
             });
           } else {
-            const blob = new Blob([textContent], { type: 'text/plain' });
+            const blob = new Blob([text], { type: 'text/plain' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = name;
@@ -313,18 +430,20 @@
         }
       }
 
-      function clearText() {
-        if (!finalText.trim()) return;
-        finalText = '';
-        interimText = '';
-        updateUI();
-        showToast('🗑 Очищено');
+      function clearAll() {
+        if (blocksData.length === 0) return;
+        if (confirm('Очистить все блоки?')) {
+          blocksData = [];
+          currentText = '';
+          renderBlocks();
+          showToast('🗑 Очищено');
+        }
       }
 
       // --- События ---
       record.addEventListener('click', toggleRec);
       save.addEventListener('click', saveFile);
-      clear.addEventListener('click', clearText);
+      clear.addEventListener('click', clearAll);
 
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -337,7 +456,7 @@
         }
       });
 
-      updateUI();
+      renderBlocks();
     })();
   </script>
 </body>
