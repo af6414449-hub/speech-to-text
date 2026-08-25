@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Голосовой транскрибатор",
+  "version": "1.0",
+  "description": "Слушает микрофон и транскрибирует речь в текст",
+  "permissions": [
+    "microphone",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Открыть транскрибатор"
+  },
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "icons": {}
+}

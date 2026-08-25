@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Голосовой транскрибатор</title>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    #transcript {
+      width: 100%;
+      min-height: 300px;
+      max-height: 500px;
+      background: transparent;
+      color: #1a1a1a;
+      border: none;
+      padding: 0;
+      font-size: 20px;
+      line-height: 1.8;
+      resize: vertical;
+      outline: none;
+      font-family: inherit;
+    }
+
+    #transcript::placeholder {
+      color: #b0b0b0;
+      font-size: 18px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    button {
+      flex: 1;
+      padding: 16px 20px;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    #startBtn {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    #startBtn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #stopBtn {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    #stopBtn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #status {
+      font-size: 15px;
+      color: #666;
+      margin-top: 14px;
+      min-height: 24px;
+      padding: 8px;
+      background: #f0f0f0;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    #status.active {
+      color: #2e7d32;
+      background: #e8f5e9;
+    }
+
+    #status.error {
+      color: #c62828;
+      background: #ffebee;
+    }
+
+    #debug {
+      font-size: 12px;
+      color: #999;
+      margin-top: 10px;
+      padding: 8px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      min-height: 60px;
+      word-break: break-all;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <textarea id="transcript" placeholder="Нажмите «Старт» и говорите..."></textarea>
+
+    <div class="controls">
+      <button id="startBtn">🎤 Старт</button>
+      <button id="stopBtn" disabled>⏹ Стоп</button>
+    </div>
+
+    <div id="status">⏸ Готов</div>
+    <div id="debug">📱 Ожидание действий...</div>
+  </div>
+
+  <script>
+    // Простая версия для проверки
+    const transcript = document.getElementById('transcript');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const statusEl = document.getElementById('status');
+    const debugEl = document.getElementById('debug');
+
+    function setStatus(text, type = '') {
+      statusEl.textContent = text;
+      statusEl.className = type;
+      debugEl.textContent += '\n📌 ' + text;
+      debugEl.scrollTop = debugEl.scrollHeight;
+    }
+
+    function addDebug(text) {
+      debugEl.textContent += '\n🔍 ' + text;
+      debugEl.scrollTop = debugEl.scrollHeight;
+      console.log(text);
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    addDebug('📱 Проверка браузера...');
+    
+    if (!SpeechRecognition) {
+      setStatus('❌ Браузер не поддерживает распознавание', 'error');
+      addDebug('❌ SpeechRecognition НЕ поддерживается');
+      startBtn.disabled = true;
+    } else {
+      addDebug('✅ SpeechRecognition поддерживается');
+      setStatus('✅ Браузер поддерживается, нажмите Старт', 'active');
+    }
+
+    let recognition = null;
+    let isListening = false;
+    let fullText = '';
+
+    function initRecognition() {
+      addDebug('🔄 Инициализация распознавания...');
+      
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ru-RU';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        addDebug('✅ СТАРТ: распознавание запущено');
+        isListening = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        setStatus('🎙 Слушаю... говорите!', 'active');
+      };
+
+      recognition.onresult = (event) => {
+        addDebug('📝 Получен результат, фрагментов: ' + event.results.length);
+        
+        let interimText = '';
+        let finalText = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          const chunk = result[0].transcript;
+          addDebug('  📄 "' + chunk + '" (финальный: ' + result.isFinal + ')');
+
+          if (result.isFinal) {
+            finalText += chunk + ' ';
+          } else {
+            interimText += chunk;
+          }
+        }
+
+        if (finalText) {
+          fullText += finalText;
+        }
+
+        let displayText = fullText;
+        if (interimText) {
+          displayText += (displayText ? ' ' : '') + interimText;
+        }
+
+        transcript.value = displayText;
+        transcript.scrollTop = transcript.scrollHeight;
+        addDebug('📝 Текст обновлён: "' + displayText.slice(-50) + '"');
+      };
+
+      recognition.onerror = (event) => {
+        addDebug('❌ ОШИБКА: ' + event.error);
+        setStatus('⚠ Ошибка: ' + event.error, 'error');
+        
+        if (event.error === 'not-allowed') {
+          setStatus('❌ Доступ к микрофону запрещён', 'error');
+          stopListening();
+        } else if (event.error === 'no-speech') {
+          setStatus('🔇 Тишина... говорите!', '');
+        }
+      };
+
+      recognition.onend = () => {
+        addDebug('⏹ СТОП: распознавание завершено');
+        
+        if (isListening) {
+          addDebug('🔄 Перезапуск через 500ms...');
+          setTimeout(() => {
+            try {
+              recognition.start();
+              addDebug('✅ Перезапущено');
+            } catch (e) {
+              addDebug('❌ Ошибка перезапуска: ' + e.message);
+            }
+          }, 500);
+        } else {
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
+          setStatus('⏸ Остановлено', '');
+        }
+      };
+
+      recognition.onsoundstart = () => {
+        addDebug('🔊 ЗВУК обнаружен');
+        setStatus('🎙 Слышу звук...', 'active');
+      };
+
+      recognition.onspeechstart = () => {
+        addDebug('🗣 РЕЧЬ обнаружена!');
+        setStatus('🗣 Говорите!', 'active');
+      };
+
+      addDebug('✅ Инициализация завершена');
+    }
+
+    function startListening() {
+      addDebug('▶ Нажата кнопка СТАРТ');
+      
+      if (!recognition) {
+        initRecognition();
+      }
+
+      isListening = true;
+      setStatus('🔄 Запуск...', '');
+      
+      try {
+        recognition.start();
+        addDebug('✅ Команда start() отправлена');
+      } catch (e) {
+        addDebug('❌ Ошибка start(): ' + e.message);
+        setStatus('❌ Ошибка: ' + e.message, 'error');
+        isListening = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+    }
+
+    function stopListening() {
+      addDebug('⏹ Нажата кнопка СТОП');
+      isListening = false;
+      
+      if (recognition) {
+        try {
+          recognition.stop();
+          addDebug('✅ Команда stop() отправлена');
+        } catch (e) {
+          addDebug('❌ Ошибка stop(): ' + e.message);
+        }
+      }
+    }
+
+    startBtn.addEventListener('click', startListening);
+    stopBtn.addEventListener('click', stopListening);
+
+    // Инициализируем при загрузке
+    initRecognition();
+  </script>
+</body>
+</html>
