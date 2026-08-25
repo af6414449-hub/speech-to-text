@@ -14,11 +14,15 @@
       box-sizing: border-box;
     }
 
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
       background: #f5f5f5;
       color: #1a1a1a;
-      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -26,30 +30,38 @@
       -webkit-user-select: none;
       user-select: none;
       touch-action: manipulation;
+      height: 100vh;
+      height: 100dvh;
     }
 
     .container {
       width: 100%;
       max-width: 800px;
-      height: 100vh;
-      max-height: 900px;
+      height: 100%;
+      max-height: 780px;
       background: #ffffff;
-      border-radius: 16px;
+      border-radius: 24px;
       padding: 24px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
       display: flex;
       flex-direction: column;
+      position: relative;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      overflow: hidden;
     }
 
     #transcript {
-      flex: 1;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       width: 100%;
-      min-height: 0;
+      height: 100%;
       background: transparent;
       color: #1a1a1a;
       border: none;
-      padding: 0;
+      padding: 30px 24px 160px 24px;
       font-size: 20px;
       line-height: 1.8;
       resize: none;
@@ -57,6 +69,8 @@
       font-family: inherit;
       -webkit-appearance: none;
       appearance: none;
+      overflow-y: auto;
+      z-index: 1;
     }
 
     #transcript::placeholder {
@@ -65,76 +79,102 @@
     }
 
     .controls {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
       display: flex;
-      gap: 12px;
-      margin-top: 20px;
-      flex-shrink: 0;
-    }
-
-    #saveBtn {
-      flex: 1;
-      padding: 16px 20px;
-      border: none;
-      border-radius: 12px;
-      font-size: 17px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
-      letter-spacing: 0.5px;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-      background: #e3f2fd;
-      color: #0d47a1;
-      order: 1;
-    }
-
-    #saveBtn:active {
-      transform: scale(0.97);
-    }
-
-    #saveBtn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      z-index: 2;
     }
 
     #mainBtn {
-      flex: 2;
-      padding: 16px 20px;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
       border: none;
-      border-radius: 12px;
-      font-size: 17px;
-      font-weight: 700;
+      font-size: 32px;
       cursor: pointer;
       transition: all 0.2s;
-      font-family: inherit;
-      letter-spacing: 0.5px;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
-      background: #e8f5e9;
-      color: #1b5e20;
-      order: 2;
+      background: #4caf50;
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(76, 175, 80, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
     }
 
     #mainBtn:active {
-      transform: scale(0.97);
+      transform: scale(0.92);
+      box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
     }
 
     #mainBtn.recording {
-      background: #ffebee;
-      color: #b71c1c;
+      background: #f44336;
+      box-shadow: 0 4px 16px rgba(244, 67, 54, 0.4);
+    }
+
+    #mainBtn.recording:active {
+      box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
     }
 
     #mainBtn:disabled {
       opacity: 0.4;
       cursor: not-allowed;
       transform: none;
+      box-shadow: none;
+    }
+
+    #saveBtn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      transition: all 0.2s;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      background: #e0e0e0;
+      color: #616161;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
+    }
+
+    #saveBtn:active {
+      transform: scale(0.92);
+    }
+
+    #saveBtn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    #saveBtn.active {
+      background: #2196f3;
+      color: #ffffff;
+      box-shadow: 0 2px 12px rgba(33, 150, 243, 0.4);
+    }
+
+    #saveBtn.active:active {
+      box-shadow: 0 1px 6px rgba(33, 150, 243, 0.3);
     }
 
     .toast {
       position: fixed;
-      bottom: 100px;
+      bottom: 140px;
       left: 50%;
       transform: translateX(-50%);
       background: #323232;
@@ -154,15 +194,83 @@
     .toast.show {
       opacity: 1;
     }
+
+    /* Адаптация для маленьких экранов */
+    @media (max-height: 640px) {
+      .container {
+        max-height: 95vh;
+        padding: 16px;
+      }
+
+      #transcript {
+        padding: 20px 16px 140px 16px;
+        font-size: 17px;
+        line-height: 1.6;
+      }
+
+      #mainBtn {
+        width: 64px;
+        height: 64px;
+        font-size: 28px;
+      }
+
+      #saveBtn {
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
+      }
+
+      .controls {
+        gap: 12px;
+        bottom: 24px;
+      }
+
+      .toast {
+        bottom: 120px;
+        font-size: 13px;
+        padding: 10px 20px;
+      }
+    }
+
+    @media (max-height: 500px) {
+      #transcript {
+        padding: 16px 12px 120px 12px;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      #mainBtn {
+        width: 56px;
+        height: 56px;
+        font-size: 24px;
+      }
+
+      #saveBtn {
+        width: 42px;
+        height: 42px;
+        font-size: 18px;
+      }
+
+      .controls {
+        gap: 10px;
+        bottom: 18px;
+      }
+
+      .toast {
+        bottom: 100px;
+        font-size: 12px;
+        padding: 8px 16px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <textarea id="transcript" placeholder="Нажмите «Старт» и говорите..."></textarea>
+    <textarea id="transcript" placeholder="Нажмите ▶ и говорите..."></textarea>
 
     <div class="controls">
-      <button id="saveBtn" disabled>Сохранить</button>
-      <button id="mainBtn">Старт</button>
+      <button id="mainBtn">▶</button>
+      <button id="saveBtn" disabled>💾</button>
     </div>
   </div>
 
@@ -201,16 +309,19 @@
 
       function updateButton(isRecording) {
         if (isRecording) {
-          mainBtn.textContent = 'Стоп';
+          mainBtn.textContent = '⬛';
           mainBtn.className = 'recording';
           saveBtn.disabled = true;
+          saveBtn.className = '';
         } else {
-          mainBtn.textContent = 'Старт';
+          mainBtn.textContent = '▶';
           mainBtn.className = '';
           if (finalTranscript.trim()) {
             saveBtn.disabled = false;
+            saveBtn.className = 'active';
           } else {
             saveBtn.disabled = true;
+            saveBtn.className = '';
           }
         }
       }
@@ -387,16 +498,15 @@
             URL.revokeObjectURL(url);
           }, 10000);
           
-          // Очищаем local storage после успешного сохранения
           try {
             localStorage.removeItem('transcript');
             localStorage.removeItem('finalTranscript');
           } catch (e) {}
           
-          // Очищаем текст в поле
           transcript.value = '';
           finalTranscript = '';
           saveBtn.disabled = true;
+          saveBtn.className = '';
           
           showToast(`✅ Сохранено: ${filename}`);
         } catch (error) {
@@ -405,7 +515,6 @@
         }
       }
 
-      // Загружаем данные из localStorage при запуске
       try {
         const savedText = localStorage.getItem('transcript');
         const savedFinal = localStorage.getItem('finalTranscript');
@@ -416,11 +525,11 @@
           finalTranscript = savedFinal;
           if (finalTranscript.trim()) {
             saveBtn.disabled = false;
+            saveBtn.className = 'active';
           }
         }
       } catch (e) {}
 
-      // Сохраняем в localStorage при каждом изменении
       transcript.addEventListener('input', () => {
         try {
           localStorage.setItem('transcript', transcript.value);
@@ -430,8 +539,10 @@
         if (!isListening) {
           if (finalTranscript.trim()) {
             saveBtn.disabled = false;
+            saveBtn.className = 'active';
           } else {
             saveBtn.disabled = true;
+            saveBtn.className = '';
           }
         }
       });
