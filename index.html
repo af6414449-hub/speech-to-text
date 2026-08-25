@@ -199,6 +199,7 @@
       let recognition = null;
       let restartTimer = null;
       let permissionPrimed = false;
+      let sessionBaseText = '';
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -364,26 +365,23 @@
           recognition.maxAlternatives = 1;
 
           recognition.onresult = function(e) {
-            let newFinal = '';
-            let newInterim = '';
+            let sessionFinal = '';
+            let sessionInterim = '';
 
-            for (let i = e.resultIndex; i < e.results.length; i++) {
+            for (let i = 0; i < e.results.length; i++) {
               const r = e.results[i];
               const chunk = normalizeText(r[0].transcript);
               if (!chunk) continue;
               if (r.isFinal) {
-                newFinal = appendUniqueTranscript(newFinal, chunk);
+                sessionFinal = appendUniqueTranscript(sessionFinal, chunk);
               } else {
-                newInterim = appendUniqueTranscript(newInterim, chunk);
+                sessionInterim = appendUniqueTranscript(sessionInterim, chunk);
               }
             }
 
-            if (newFinal) {
-              finalText = collapseRepeatedTailBlocks(appendUniqueTranscript(finalText, newFinal));
-              interimText = '';
-            } else {
-              interimText = newInterim;
-            }
+            sessionFinal = collapseRepeatedTailBlocks(sessionFinal);
+            finalText = collapseRepeatedTailBlocks(appendUniqueTranscript(sessionBaseText, sessionFinal));
+            interimText = sessionInterim;
 
             updateUI();
             persistText();
@@ -419,6 +417,7 @@
         }
 
         isRecording = true;
+        sessionBaseText = normalizeText(finalText || text.value);
         recognition._manualStop = false;
         updateUI();
         try { recognition.start(); } catch(_) {}
