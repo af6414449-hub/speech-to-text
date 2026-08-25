@@ -1,344 +1,699 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Диктофон</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#171311">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>Голосовой транскрибатор</title>
+
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; overflow: hidden; }
+    :root {
+      --bg: #110f0e;
+      --bg-2: #1a1513;
+      --panel: rgba(35, 28, 24, 0.94);
+      --panel-2: rgba(28, 22, 19, 0.98);
+      --field: rgba(24, 19, 17, 0.94);
+      --field-line: rgba(255, 236, 223, 0.08);
+      --line: rgba(255, 236, 223, 0.09);
+      --text: #f7efe8;
+      --muted: #bdaea2;
+      --accent: #d17a4b;
+      --accent-2: #ebb07a;
+      --accent-shadow: rgba(209, 122, 75, 0.26);
+      --save: #3a2b24;
+      --save-2: #4a352b;
+      --save-text: #f4e7dc;
+      --danger: #9f433c;
+      --danger-2: #c45d54;
+      --danger-shadow: rgba(159, 67, 60, 0.24);
+      --ok: #d17a4b;
+      --radius: 26px;
+      --pill: 999px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      min-height: 100%;
+      overflow: hidden;
+    }
+
     body {
-      background: #f5f5f5;
+      background:
+        radial-gradient(circle at top, rgba(235, 176, 122, 0.09), transparent 26%),
+        radial-gradient(circle at bottom, rgba(209, 122, 75, 0.12), transparent 32%),
+        linear-gradient(180deg, var(--bg), var(--bg-2));
       display: flex;
       justify-content: center;
       align-items: center;
       padding: 16px;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      color: var(--text);
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
     }
-    .app {
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 32px 32px;
+      opacity: 0.16;
+      mask-image: radial-gradient(circle at center, black 34%, transparent 88%);
+    }
+
+    .container {
       width: 100%;
-      max-width: 600px;
-      height: 100%;
-      max-height: 700px;
-      background: white;
-      border-radius: 24px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      position: relative;
+      max-width: 800px;
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border-radius: 30px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
-    .text {
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    button {
+      padding: 16px 20px;
+      border: 1px solid transparent;
+      border-radius: var(--pill);
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition:
+        transform 220ms var(--ease),
+        opacity 220ms var(--ease),
+        background 220ms var(--ease),
+        box-shadow 220ms var(--ease),
+        border-color 220ms var(--ease);
+      font-family: inherit;
+      letter-spacing: 0.1px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      min-height: 58px;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    #mainBtn {
+      flex: 2;
+      color: #fff4ec;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 18px 38px var(--accent-shadow);
+    }
+
+    #mainBtn:hover:not(:disabled) {
+      filter: brightness(1.03);
+    }
+
+    #mainBtn.recording {
+      background: linear-gradient(135deg, var(--danger), var(--danger-2));
+      box-shadow: 0 18px 38px var(--danger-shadow);
+    }
+
+    #mainBtn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #saveBtn {
       flex: 1;
-      border: none;
-      resize: none;
+      color: var(--save-text);
+      background: linear-gradient(180deg, var(--save), var(--save-2));
+      border-color: rgba(255, 236, 223, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    #saveBtn:hover:not(:disabled) {
+      filter: brightness(1.08);
+    }
+
+    #saveBtn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #transcript {
+      width: 100%;
+      min-height: 350px;
+      max-height: 500px;
+      background: linear-gradient(180deg, rgba(28, 22, 19, 0.9), rgba(20, 16, 14, 0.96));
+      color: var(--text);
+      border: 1px solid var(--field-line);
+      border-radius: var(--radius);
+      padding: 18px 18px 22px;
       font-size: 20px;
       line-height: 1.8;
+      resize: vertical;
       outline: none;
       font-family: inherit;
-      padding: 10px 0;
+      -webkit-appearance: none;
+      appearance: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+      caret-color: var(--accent-2);
     }
-    .text::placeholder { color: #bbb; }
-    .buttons {
+
+    #transcript::placeholder {
+      color: #96867b;
+      font-size: 18px;
+    }
+
+    #status {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 14px;
+      min-height: 20px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 16px;
-      padding-top: 16px;
-      border-top: 1px solid #eee;
+      gap: 8px;
     }
-    .btn-clear {
-      width: 56px;
-      height: 56px;
+
+    #status.active {
+      color: var(--text);
+    }
+
+    #status.error {
+      color: #ffb2a8;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      background: #ffebee;
-      color: #c62828;
-      transition: 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: rgba(255,255,255,0.24);
+      transition: background 0.3s;
+      flex: 0 0 auto;
     }
-    .btn-clear:active { transform: scale(0.9); }
-    .btn-clear:disabled { opacity: 0.3; cursor: not-allowed; }
-    .btn-save {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      background: #e0e0e0;
-      color: #999;
-      transition: 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+
+    .status-dot.recording {
+      background: var(--accent);
+      box-shadow: 0 0 0 8px rgba(209, 122, 75, 0.08);
+      animation: pulse 1s infinite;
     }
-    .btn-save:active { transform: scale(0.9); }
-    .btn-save.active {
-      background: #2196F3;
-      color: white;
+
+    .status-dot.listening {
+      background: var(--accent-2);
+      box-shadow: 0 0 0 8px rgba(235, 176, 122, 0.08);
+      animation: pulse 0.8s infinite;
     }
-    .btn-save:disabled { opacity: 0.3; cursor: not-allowed; }
-    .btn-record {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      border: none;
-      font-size: 36px;
-      cursor: pointer;
-      background: #4CAF50;
-      color: white;
-      transition: 0.2s;
-      box-shadow: 0 4px 12px rgba(76,175,80,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
     }
-    .btn-record:active { transform: scale(0.9); }
-    .btn-record.active {
-      background: #f44336;
-      box-shadow: 0 4px 12px rgba(244,67,54,0.3);
-    }
+
     .toast {
       position: fixed;
-      bottom: 30px;
+      bottom: max(18px, env(safe-area-inset-bottom));
       left: 50%;
-      transform: translateX(-50%);
-      background: #333;
-      color: white;
-      padding: 12px 24px;
-      border-radius: 8px;
+      transform: translateX(-50%) translateY(12px);
+      background: rgba(34, 28, 24, 0.98);
+      color: var(--text);
+      padding: 12px 18px;
+      border-radius: 16px;
       font-size: 14px;
+      font-family: inherit;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
       opacity: 0;
-      transition: 0.3s;
+      transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
       pointer-events: none;
-      white-space: nowrap;
+      z-index: 1000;
+      max-width: calc(100vw - 24px);
+      text-align: center;
     }
-    .toast.show { opacity: 1; }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 10px;
+        align-items: stretch;
+      }
+
+      .container {
+        min-height: calc(100dvh - 20px);
+        display: flex;
+        flex-direction: column;
+        padding: 12px;
+        border-radius: 24px;
+      }
+
+      .controls {
+        margin-bottom: 12px;
+      }
+
+      #transcript {
+        min-height: 0;
+        max-height: none;
+        flex: 1;
+        font-size: 18px;
+        line-height: 1.65;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="app">
-    <textarea class="text" id="text" placeholder="Нажмите ▶ и говорите..."></textarea>
-    <div class="buttons">
-      <button class="btn-clear" id="clear" disabled>✕</button>
-      <button class="btn-save" id="save" disabled>💾</button>
-      <button class="btn-record" id="record">▶</button>
+  <div class="container">
+    <div class="controls">
+      <button id="mainBtn">🎤 Старт</button>
+      <button id="saveBtn" disabled>💾 Сохранить</button>
+    </div>
+
+    <textarea id="transcript" placeholder="Нажмите «Старт» и говорите..."></textarea>
+
+    <div id="status">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="status-text" id="statusText">Готов</span>
     </div>
   </div>
+
   <div class="toast" id="toast"></div>
 
   <script>
-    (function() {
-      const text = document.getElementById('text');
-      const record = document.getElementById('record');
-      const save = document.getElementById('save');
-      const clear = document.getElementById('clear');
+    document.addEventListener('DOMContentLoaded', () => {
+      const transcript = document.getElementById('transcript');
+      const mainBtn = document.getElementById('mainBtn');
+      const saveBtn = document.getElementById('saveBtn');
+      const statusText = document.getElementById('statusText');
+      const statusDot = document.getElementById('statusDot');
       const toast = document.getElementById('toast');
 
-      let isRecording = false;
-      let finalText = '';
-      let interimText = '';
       let recognition = null;
-      let restartTimer = null;
-      let lastText = '';
+      let isListening = false;
+      let finalTranscript = '';
+      let restartTimeout = null;
+      let isManualStop = false;
+      let toastTimeout = null;
+
+      const storage = {
+        get(key) {
+          try {
+            return localStorage.getItem(key) || '';
+          } catch (e) {
+            return '';
+          }
+        },
+        set(key, value) {
+          try {
+            localStorage.setItem(key, value);
+          } catch (e) {}
+        },
+        remove(key) {
+          try {
+            localStorage.removeItem(key);
+          } catch (e) {}
+        }
+      };
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        toast.textContent = '❌ Браузер не поддерживает';
-        toast.classList.add('show');
-        record.disabled = true;
+        setStatus('❌ Браузер не поддерживает распознавание речи', 'error');
+        mainBtn.disabled = true;
         return;
       }
 
-      function showToast(msg) {
-        toast.textContent = msg;
+      function normalizeText(value) {
+        return (value || '').replace(/\s+/g, ' ').trim();
+      }
+
+      function appendUniqueTranscript(base, chunk) {
+        const normalizedBase = normalizeText(base);
+        const normalizedChunk = normalizeText(chunk);
+
+        if (!normalizedChunk) return normalizedBase;
+        if (!normalizedBase) return normalizedChunk;
+        if (normalizedBase === normalizedChunk) return normalizedBase;
+        if (normalizedBase.endsWith(normalizedChunk)) return normalizedBase;
+        if (normalizedChunk.includes(normalizedBase)) return normalizedChunk;
+
+        const maxOverlap = Math.min(normalizedBase.length, normalizedChunk.length);
+        for (let size = maxOverlap; size > 0; size -= 1) {
+          if (normalizedBase.slice(-size) === normalizedChunk.slice(0, size)) {
+            return normalizeText(normalizedBase + ' ' + normalizedChunk.slice(size));
+          }
+        }
+
+        return normalizeText(normalizedBase + ' ' + normalizedChunk);
+      }
+
+      function safeInterim(base, interim) {
+        const normalizedBase = normalizeText(base);
+        const normalizedInterim = normalizeText(interim);
+
+        if (!normalizedInterim) return '';
+        if (!normalizedBase) return normalizedInterim;
+        if (normalizedBase.endsWith(normalizedInterim)) return '';
+
+        const words = normalizedBase.split(' ');
+        for (let count = Math.min(words.length, 8); count > 0; count -= 1) {
+          const tail = words.slice(-count).join(' ');
+          if (normalizedInterim.startsWith(tail)) {
+            return normalizedInterim.slice(tail.length).trim();
+          }
+        }
+
+        return normalizedInterim;
+      }
+
+      function persistState() {
+        storage.set('transcript', transcript.value);
+        storage.set('finalTranscript', finalTranscript);
+      }
+
+      function showToast(message) {
+        toast.textContent = message;
         toast.classList.add('show');
-        clearTimeout(toast._timer);
-        toast._timer = setTimeout(() => toast.classList.remove('show'), 3000);
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+          toast.classList.remove('show');
+        }, 3000);
       }
 
-      function updateUI() {
-        // Кнопка записи
-        if (isRecording) {
-          record.textContent = '■';
-          record.className = 'btn-record active';
+      function setStatus(text, type = '') {
+        statusText.textContent = text;
+        const status = document.getElementById('status');
+        status.className = type ? type : '';
+      }
+
+      function setDotState(state) {
+        statusDot.className = 'status-dot';
+        if (state === 'recording') statusDot.classList.add('recording');
+        if (state === 'listening') statusDot.classList.add('listening');
+      }
+
+      function updateButton(recording) {
+        if (recording) {
+          mainBtn.textContent = '⏹ Стоп';
+          mainBtn.className = 'recording';
+          saveBtn.disabled = true;
         } else {
-          record.textContent = '▶';
-          record.className = 'btn-record';
-        }
-
-        // Текст
-        const display = finalText + (interimText ? ' ' + interimText : '');
-        if (text.value !== display) {
-          text.value = display;
-          text.scrollTop = text.scrollHeight;
-        }
-
-        // Кнопки Сохранить и Очистить
-        const hasText = finalText.trim().length > 0;
-        if (hasText) {
-          save.disabled = false;
-          save.className = 'btn-save active';
-          clear.disabled = false;
-          clear.className = 'btn-clear';
-        } else {
-          save.disabled = true;
-          save.className = 'btn-save';
-          clear.disabled = true;
-          clear.className = 'btn-clear';
+          mainBtn.textContent = '🎤 Старт';
+          mainBtn.className = '';
+          saveBtn.disabled = !normalizeText(finalTranscript);
         }
       }
 
-      function startRec() {
-        if (isRecording) return;
-        if (!recognition) {
-          recognition = new SpeechRecognition();
-          recognition.lang = 'ru-RU';
-          recognition.continuous = true;
-          recognition.interimResults = true;
-
-          recognition.onresult = function(e) {
-            let newFinal = '';
-            let newInterim = '';
-
-            for (let i = e.resultIndex; i < e.results.length; i++) {
-              const r = e.results[i];
-              const chunk = r[0].transcript;
-              if (r.isFinal) {
-                newFinal += chunk + ' ';
-              } else {
-                newInterim += chunk;
-              }
-            }
-
-            // Android фикс: добавляем только если текст реально новый
-            if (newFinal) {
-              // Проверяем, не заканчивается ли уже finalText на этот текст
-              if (!finalText.endsWith(newFinal)) {
-                finalText += newFinal;
-              }
-              interimText = '';
-            } else if (newInterim) {
-              interimText = newInterim;
-            }
-
-            updateUI();
-          };
-
-          recognition.onerror = function(e) {
-            if (e.error === 'not-allowed') {
-              showToast('❌ Нет доступа к микрофону');
-              stopRec();
-            } else if (e.error === 'no-speech') {
-              // игнорируем
-            } else if (e.error === 'audio-capture') {
-              showToast('❌ Микрофон недоступен');
-              stopRec();
-            }
-          };
-
-          recognition.onend = function() {
-            if (isRecording && !recognition._manualStop) {
-              clearTimeout(restartTimer);
-              restartTimer = setTimeout(() => {
-                if (isRecording) {
-                  try { recognition.start(); } catch(_) {}
-                }
-              }, 300);
-            } else {
-              isRecording = false;
-              recognition._manualStop = false;
-              updateUI();
-            }
-          };
-        }
-
-        isRecording = true;
-        recognition._manualStop = false;
-        updateUI();
-        try { recognition.start(); } catch(_) {}
+      function renderTranscript(interim = '') {
+        const finalNormalized = normalizeText(finalTranscript);
+        const interimNormalized = safeInterim(finalNormalized, interim);
+        transcript.value = [finalNormalized, interimNormalized].filter(Boolean).join(' ').trim();
+        transcript.scrollTop = transcript.scrollHeight;
       }
 
-      function stopRec() {
-        isRecording = false;
+      function initRecognition() {
         if (recognition) {
-          recognition._manualStop = true;
-          clearTimeout(restartTimer);
-          try { recognition.stop(); } catch(_) {}
+          try { recognition.abort(); } catch (e) {}
         }
-        updateUI();
+
+        recognition = new SpeechRecognition();
+        recognition.lang = 'ru-RU';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+          isListening = true;
+          isManualStop = false;
+          updateButton(true);
+          setStatus('Слушаю...', 'active');
+          setDotState('listening');
+        };
+
+        recognition.onresult = (event) => {
+          let aggregatedFinal = '';
+          let aggregatedInterim = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i];
+            const chunk = normalizeText(result[0].transcript);
+            if (!chunk) continue;
+
+            if (result.isFinal) {
+              aggregatedFinal = appendUniqueTranscript(aggregatedFinal, chunk);
+            } else {
+              aggregatedInterim = appendUniqueTranscript(aggregatedInterim, chunk);
+            }
+          }
+
+          if (aggregatedFinal) {
+            finalTranscript = appendUniqueTranscript(finalTranscript, aggregatedFinal);
+          }
+
+          renderTranscript(aggregatedInterim);
+          persistState();
+
+          if (aggregatedInterim) {
+            setDotState('listening');
+          }
+        };
+
+        recognition.onerror = (event) => {
+          if (event.error === 'not-allowed') {
+            setStatus('❌ Доступ к микрофону запрещён', 'error');
+            setDotState('');
+            stopListening();
+          } else if (event.error === 'no-speech') {
+            setStatus('Тишина...', '');
+            setDotState('recording');
+          } else if (event.error === 'audio-capture') {
+            setStatus('❌ Микрофон недоступен', 'error');
+            setDotState('');
+            stopListening();
+          } else if (event.error === 'network') {
+            setStatus('🌐 Проблема с сетью', '');
+            if (isListening && !isManualStop) {
+              setTimeout(() => {
+                try { recognition.start(); } catch (e) {}
+              }, 1000);
+            }
+          } else {
+            setStatus(`⚠ ${event.error}`, '');
+          }
+        };
+
+        recognition.onend = () => {
+          if (isListening && !isManualStop) {
+            setStatus('Перезапуск...', '');
+            setDotState('recording');
+
+            if (restartTimeout) clearTimeout(restartTimeout);
+            restartTimeout = setTimeout(() => {
+              if (isListening && !isManualStop) {
+                try {
+                  recognition.start();
+                } catch (e) {
+                  restartTimeout = setTimeout(() => {
+                    try {
+                      if (isListening && !isManualStop) recognition.start();
+                    } catch (err) {}
+                  }, 500);
+                }
+              }
+            }, 300);
+          } else {
+            isListening = false;
+            updateButton(false);
+            setStatus('Остановлено', '');
+            setDotState('');
+          }
+        };
+
+        recognition.onsoundstart = () => {
+          setStatus('Слушаю...', 'active');
+          setDotState('listening');
+        };
+
+        recognition.onsoundend = () => {
+          if (isListening && !isManualStop) {
+            setStatus('Пауза', '');
+            setDotState('recording');
+          }
+        };
       }
 
-      function toggleRec() {
-        if (isRecording) stopRec();
-        else startRec();
+      function startListening() {
+        if (isListening) return;
+
+        if (transcript.value && !normalizeText(finalTranscript)) {
+          finalTranscript = normalizeText(transcript.value);
+        }
+
+        if (!recognition) initRecognition();
+
+        isManualStop = false;
+        isListening = true;
+        setStatus('Запуск...', '');
+        setDotState('recording');
+
+        try {
+          recognition.start();
+        } catch (e) {
+          if (e.message && e.message.includes('already started')) {
+            isListening = true;
+            updateButton(true);
+            setStatus('Слушаю...', 'active');
+            setDotState('listening');
+          } else {
+            setStatus('❌ Ошибка запуска', 'error');
+            isListening = false;
+            updateButton(false);
+            setDotState('');
+          }
+        }
       }
 
-      function saveFile() {
-        const textContent = finalText.trim();
-        if (!textContent) {
-          showToast('❌ Нет текста');
+      function stopListening(manual = true) {
+        isManualStop = manual;
+        isListening = false;
+
+        if (restartTimeout) {
+          clearTimeout(restartTimeout);
+          restartTimeout = null;
+        }
+
+        if (recognition) {
+          try { recognition.stop(); } catch (e) {}
+        }
+
+        finalTranscript = normalizeText(transcript.value);
+        renderTranscript();
+        updateButton(false);
+        setStatus('Остановлено', '');
+        setDotState('');
+        persistState();
+      }
+
+      function toggleListening() {
+        if (isListening) {
+          stopListening(true);
+        } else {
+          startListening();
+        }
+      }
+
+      function triggerDownload(file, filename) {
+        const url = URL.createObjectURL(file);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      }
+
+      async function saveToFile() {
+        const textValue = normalizeText(finalTranscript || transcript.value);
+        if (!textValue) {
+          showToast('❌ Нет текста для сохранения');
           return;
         }
 
         const now = new Date();
-        const pad = n => String(n).padStart(2, '0');
-        const name = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
-          '_' + pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds()) + '.txt';
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const filename = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}.txt`;
 
         try {
-          if (navigator.share) {
-            const file = new File([textContent], name, { type: 'text/plain' });
-            navigator.share({ files: [file] }).then(() => {
-              showToast('✅ Файл передан в "Поделиться"');
-            }).catch(err => {
-              if (err.name !== 'AbortError') showToast('❌ ' + err.message);
-            });
+          const file = new File([textValue], filename, { type: 'text/plain;charset=utf-8' });
+
+          if (navigator.canShare && navigator.canShare({ files: [file] }) && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            await navigator.share({ files: [file], title: filename });
+            showToast(`✅ TXT: ${filename}`);
           } else {
-            const blob = new Blob([textContent], { type: 'text/plain' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = name;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            showToast('✅ Сохранено: ' + name);
+            triggerDownload(file, filename);
+            showToast(`✅ Сохранено: ${filename}`);
           }
-        } catch(e) {
-          showToast('❌ Ошибка: ' + e.message);
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+          try {
+            const fallbackFile = new File([textValue], filename, { type: 'text/plain;charset=utf-8' });
+            triggerDownload(fallbackFile, filename);
+            showToast(`✅ Сохранено: ${filename}`);
+          } catch (fallbackError) {
+            showToast('❌ Ошибка сохранения');
+            console.error('Save error:', error, fallbackError);
+          }
         }
       }
 
-      function clearText() {
-        if (!finalText.trim()) return;
-        finalText = '';
-        interimText = '';
-        updateUI();
-        showToast('🗑 Очищено');
+      const savedText = storage.get('transcript');
+      const savedFinal = storage.get('finalTranscript');
+      if (savedFinal) {
+        finalTranscript = normalizeText(savedFinal);
+      } else if (savedText) {
+        finalTranscript = normalizeText(savedText);
       }
+      renderTranscript();
+      updateButton(false);
 
-      // --- События ---
-      record.addEventListener('click', toggleRec);
-      save.addEventListener('click', saveFile);
-      clear.addEventListener('click', clearText);
-
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-          e.preventDefault();
-          toggleRec();
-        }
-        if (e.key === 'Escape' && isRecording) {
-          e.preventDefault();
-          stopRec();
+      transcript.addEventListener('input', () => {
+        if (!isListening) {
+          finalTranscript = normalizeText(transcript.value);
+          renderTranscript();
+          updateButton(false);
+          persistState();
         }
       });
 
-      updateUI();
-    })();
+      mainBtn.addEventListener('click', toggleListening);
+      saveBtn.addEventListener('click', saveToFile);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'Enter') {
+          e.preventDefault();
+          toggleListening();
+        }
+        if (e.key === 'Escape' && isListening) {
+          e.preventDefault();
+          stopListening(true);
+        }
+        if (e.ctrlKey && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          saveToFile();
+        }
+      });
+
+      window.addEventListener('beforeunload', () => {
+        if (isListening) stopListening(true);
+        persistState();
+      });
+
+      initRecognition();
+    });
   </script>
 </body>
 </html>
