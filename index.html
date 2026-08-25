@@ -100,9 +100,9 @@
       transition: all 0.2s;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
-      background: #4caf50;
+      background: #66bb6a;
       color: #ffffff;
-      box-shadow: 0 4px 16px rgba(76, 175, 80, 0.4);
+      box-shadow: 0 4px 16px rgba(102, 187, 106, 0.35);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -112,16 +112,16 @@
 
     #mainBtn:active {
       transform: scale(0.92);
-      box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+      box-shadow: 0 2px 8px rgba(102, 187, 106, 0.25);
     }
 
     #mainBtn.recording {
-      background: #f44336;
-      box-shadow: 0 4px 16px rgba(244, 67, 54, 0.4);
+      background: #ef5350;
+      box-shadow: 0 4px 16px rgba(239, 83, 80, 0.35);
     }
 
     #mainBtn.recording:active {
-      box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+      box-shadow: 0 2px 8px rgba(239, 83, 80, 0.25);
     }
 
     #mainBtn:disabled {
@@ -142,8 +142,8 @@
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
       background: #e0e0e0;
-      color: #616161;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      color: #9e9e9e;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -163,13 +163,13 @@
     }
 
     #saveBtn.active {
-      background: #2196f3;
+      background: #42a5f5;
       color: #ffffff;
-      box-shadow: 0 2px 12px rgba(33, 150, 243, 0.4);
+      box-shadow: 0 2px 12px rgba(66, 165, 245, 0.35);
     }
 
     #saveBtn.active:active {
-      box-shadow: 0 1px 6px rgba(33, 150, 243, 0.3);
+      box-shadow: 0 1px 6px rgba(66, 165, 245, 0.25);
     }
 
     .toast {
@@ -195,7 +195,6 @@
       opacity: 1;
     }
 
-    /* Адаптация для маленьких экранов */
     @media (max-height: 640px) {
       .container {
         max-height: 95vh;
@@ -286,6 +285,7 @@
       let recognition = null;
       let isListening = false;
       let finalTranscript = '';
+      let interimTranscript = '';
       let restartTimeout = null;
       let isManualStop = false;
       let toastTimeout = null;
@@ -326,6 +326,15 @@
         }
       }
 
+      function updateTranscript() {
+        let displayText = finalTranscript;
+        if (interimTranscript) {
+          displayText += (displayText ? ' ' : '') + interimTranscript;
+        }
+        transcript.value = displayText;
+        transcript.scrollTop = transcript.scrollHeight;
+      }
+
       function initRecognition() {
         if (recognition) {
           try { recognition.abort(); } catch (e) {}
@@ -344,31 +353,28 @@
         };
 
         recognition.onresult = (event) => {
-          let interimText = '';
-          let finalText = '';
+          let newFinal = '';
+          let newInterim = '';
 
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const result = event.results[i];
             const chunk = result[0].transcript;
 
             if (result.isFinal) {
-              finalText += chunk + ' ';
+              newFinal += chunk + ' ';
             } else {
-              interimText += chunk;
+              newInterim += chunk;
             }
           }
 
-          if (finalText) {
-            finalTranscript += finalText;
+          if (newFinal) {
+            finalTranscript += newFinal;
+            interimTranscript = '';
+          } else {
+            interimTranscript = newInterim;
           }
 
-          let displayText = finalTranscript;
-          if (interimText) {
-            displayText += (displayText ? ' ' : '') + interimText;
-          }
-
-          transcript.value = displayText;
-          transcript.scrollTop = transcript.scrollHeight;
+          updateTranscript();
         };
 
         recognition.onerror = (event) => {
@@ -376,7 +382,7 @@
             showToast('❌ Доступ к микрофону запрещён');
             stopListening();
           } else if (event.error === 'no-speech') {
-            // Ничего не показываем
+            // ничего не делаем
           } else if (event.error === 'audio-capture') {
             showToast('❌ Микрофон недоступен');
             stopListening();
@@ -393,7 +399,6 @@
         recognition.onend = () => {
           if (isListening && !isManualStop) {
             if (restartTimeout) clearTimeout(restartTimeout);
-            
             restartTimeout = setTimeout(() => {
               if (isListening && !isManualStop) {
                 try {
@@ -487,17 +492,28 @@
 
         try {
           const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
+          
+          // Универсальный способ скачивания для всех устройств
           const link = document.createElement('a');
-          link.href = url;
+          link.href = URL.createObjectURL(blob);
           link.download = filename;
+          link.style.display = 'none';
           document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          
+          // Для мобильных устройств важно явно указать MIME-тип
+          if (navigator.msSaveBlob) {
+            // Для Internet Explorer / Edge
+            navigator.msSaveBlob(blob, filename);
+          } else {
+            link.click();
+          }
+          
           setTimeout(() => {
-            URL.revokeObjectURL(url);
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
           }, 10000);
           
+          // Очищаем localStorage
           try {
             localStorage.removeItem('transcript');
             localStorage.removeItem('finalTranscript');
@@ -505,6 +521,7 @@
           
           transcript.value = '';
           finalTranscript = '';
+          interimTranscript = '';
           saveBtn.disabled = true;
           saveBtn.className = '';
           
@@ -515,6 +532,7 @@
         }
       }
 
+      // Загружаем из localStorage
       try {
         const savedText = localStorage.getItem('transcript');
         const savedFinal = localStorage.getItem('finalTranscript');
