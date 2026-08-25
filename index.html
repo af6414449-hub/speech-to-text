@@ -212,15 +212,30 @@
         return (value || '').replace(/\s+/g, ' ').trim();
       }
 
+      function collapseImmediateDuplication(value) {
+        const normalized = normalizeText(value);
+        if (!normalized) return '';
+
+        const words = normalized.split(' ');
+        if (words.length >= 2 && words.length % 2 === 0) {
+          const half = words.length / 2;
+          const left = words.slice(0, half).join(' ');
+          const right = words.slice(half).join(' ');
+          if (left === right) return left;
+        }
+
+        return normalized;
+      }
+
       function appendUniqueTranscript(base, chunk) {
         const normalizedBase = normalizeText(base);
-        const normalizedChunk = normalizeText(chunk);
+        const normalizedChunk = collapseImmediateDuplication(chunk);
 
         if (!normalizedChunk) return normalizedBase;
         if (!normalizedBase) return normalizedChunk;
         if (normalizedBase === normalizedChunk) return normalizedBase;
         if (normalizedBase.endsWith(normalizedChunk)) return normalizedBase;
-        if (normalizedChunk.includes(normalizedBase)) return normalizedChunk;
+        if (normalizedChunk.startsWith(normalizedBase + ' ')) return normalizedChunk;
 
         const maxOverlap = Math.min(normalizedBase.length, normalizedChunk.length);
         for (let size = maxOverlap; size > 0; size -= 1) {
