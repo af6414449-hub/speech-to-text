@@ -68,6 +68,13 @@
       margin-top: 4px;
       display: block;
     }
+    .block.live {
+      border-left-color: #ff9800;
+      background: #fff8e1;
+    }
+    .block.live .block-time {
+      color: #ff9800;
+    }
     .empty-state {
       color: #bbb;
       text-align: center;
@@ -184,7 +191,6 @@
       let blocksData = [];
       let recognition = null;
       let restartTimer = null;
-      let blockCounter = 0;
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -217,8 +223,9 @@
         let html = '';
         blocksData.forEach((block, index) => {
           const isCollapsed = block.collapsed !== false;
+          const isLive = block.live || false;
           html += `
-            <div class="block ${isCollapsed ? 'collapsed' : 'expanded'}" data-index="${index}">
+            <div class="block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}" data-index="${index}">
               <div class="block-text">${escapeHtml(block.text)}</div>
               <span class="block-time">${block.time}</span>
             </div>
@@ -226,11 +233,10 @@
         });
         blocks.innerHTML = html;
 
-        // Клик по блоку — переключение
         document.querySelectorAll('.block').forEach(el => {
           el.addEventListener('click', function(e) {
             const idx = parseInt(this.dataset.index);
-            if (!isNaN(idx) && blocksData[idx]) {
+            if (!isNaN(idx) && blocksData[idx] && !blocksData[idx].live) {
               blocksData[idx].collapsed = !blocksData[idx].collapsed;
               renderBlocks();
             }
@@ -248,7 +254,7 @@
       }
 
       function updateButtons() {
-        const hasBlocks = blocksData.length > 0;
+        const hasBlocks = blocksData.filter(b => !b.live).length > 0;
         if (hasBlocks) {
           save.disabled = false;
           save.className = 'btn-save active';
@@ -262,14 +268,15 @@
         }
       }
 
-      function addBlock(text) {
+      function addBlock(text, live = false) {
         if (!text.trim()) return;
         blocksData.push({
           text: text.trim(),
-          time: getTime(),
-          collapsed: true
+          time: live ? '...' : getTime(),
+          collapsed: !live,
+          live: live
         });
-        currentText = '';
+        if (!live) currentText = '';
         renderBlocks();
       }
 
@@ -299,11 +306,11 @@
               if (!currentText.endsWith(newFinal)) {
                 currentText += newFinal;
               }
+              // Обновляем живой блок
+              updateLiveBlock(currentText);
             } else if (newInterim) {
-              // Показываем промежуточный текст во время записи
-              const displayText = currentText + (currentText ? ' ' : '') + newInterim;
-              // Временно показываем в отдельном блоке
-              showTempBlock(displayText);
+              // Показываем промежуточный текст
+              updateLiveBlock(currentText + (currentText ? ' ' : '') + newInterim);
             }
           };
 
@@ -328,9 +335,10 @@
             } else {
               isRecording = false;
               recognition._manualStop = false;
-              // Сохраняем текущий текст как блок
+              // Убираем живой блок и сохраняем финальный
+              blocksData = blocksData.filter(b => !b.live);
               if (currentText.trim()) {
-                addBlock(currentText);
+                addBlock(currentText, false);
               }
               renderBlocks();
             }
@@ -341,22 +349,40 @@
         recognition._manualStop = false;
         record.textContent = '■';
         record.className = 'btn-record active';
+        
+        // Создаём живой блок для отображения текста
+        if (currentText.trim()) {
+          addBlock(currentText, true);
+        } else {
+          // Пустой блок для показа промежуточного текста
+          blocksData.push({
+            text: '',
+            time: '...',
+            collapsed: false,
+            live: true
+          });
+          renderBlocks();
+        }
+        
         try { recognition.start(); } catch(_) {}
       }
 
-      function showTempBlock(text) {
-        // Временно показываем промежуточный текст
-        if (blocksData.length === 0 || !blocksData[blocksData.length-1]._temp) {
-          blocksData.push({
-            text: text,
-            time: '...',
-            collapsed: false,
-            _temp: true
-          });
-        } else {
-          blocksData[blocksData.length-1].text = text;
+      function updateLiveBlock(text) {
+        // Находим последний живой блок
+        let liveIndex = -1;
+        for (let i = blocksData.length - 1; i >= 0; i--) {
+          if (blocksData[i].live) {
+            liveIndex = i;
+            break;
+          }
         }
-        renderBlocks();
+        
+        if (liveIndex >= 0) {
+          blocksData[liveIndex].text = text;
+          // Не сворачиваем живой блок
+          blocksData[liveIndex].collapsed = false;
+          renderBlocks();
+        }
       }
 
       function stopRec() {
@@ -368,17 +394,6 @@
         }
         record.textContent = '▶';
         record.className = 'btn-record';
-        
-        // Убираем временный блок
-        if (blocksData.length > 0 && blocksData[blocksData.length-1]._temp) {
-          blocksData.pop();
-        }
-        
-        // Сохраняем финальный текст как блок
-        if (currentText.trim()) {
-          addBlock(currentText);
-        }
-        renderBlocks();
       }
 
       function toggleRec() {
@@ -387,15 +402,13 @@
       }
 
       function saveFile() {
-        if (blocksData.length === 0) {
+        const realBlocks = blocksData.filter(b => !b.live);
+        if (realBlocks.length === 0) {
           showToast('❌ Нет текста');
           return;
         }
 
-        const text = blocksData
-          .filter(b => !b._temp)
-          .map(b => b.text)
-          .join('\n\n');
+        const text = realBlocks.map(b => b.text).join('\n\n');
 
         if (!text.trim()) {
           showToast('❌ Нет текста');
@@ -431,10 +444,16 @@
       }
 
       function clearAll() {
-        if (blocksData.length === 0) return;
+        const realBlocks = blocksData.filter(b => !b.live);
+        if (realBlocks.length === 0) {
+          showToast('Нет блоков для очистки');
+          return;
+        }
         if (confirm('Очистить все блоки?')) {
-          blocksData = [];
-          currentText = '';
+          blocksData = blocksData.filter(b => b.live);
+          if (blocksData.length > 0 && blocksData[0].live) {
+            blocksData[0].text = '';
+          }
           renderBlocks();
           showToast('🗑 Очищено');
         }
