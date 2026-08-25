@@ -31,77 +31,28 @@
     .container {
       width: 100%;
       max-width: 800px;
+      height: 100vh;
+      max-height: 900px;
       background: #ffffff;
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      display: flex;
+      flex-direction: column;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
 
-    .controls {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    button {
-      padding: 16px 20px;
-      border: none;
-      border-radius: 12px;
-      font-size: 17px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
-      letter-spacing: 0.3px;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-    }
-
-    button:active {
-      transform: scale(0.97);
-    }
-
-    #mainBtn {
-      flex: 2;
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-
-    #mainBtn.recording {
-      background: #ffebee;
-      color: #c62828;
-    }
-
-    #mainBtn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    #saveBtn {
-      flex: 1;
-      background: #e3f2fd;
-      color: #0d47a1;
-    }
-
-    #saveBtn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none;
-    }
-
     #transcript {
+      flex: 1;
       width: 100%;
-      min-height: 350px;
-      max-height: 500px;
+      min-height: 0;
       background: transparent;
       color: #1a1a1a;
       border: none;
       padding: 0;
       font-size: 20px;
       line-height: 1.8;
-      resize: vertical;
+      resize: none;
       outline: none;
       font-family: inherit;
       -webkit-appearance: none;
@@ -113,43 +64,77 @@
       font-size: 18px;
     }
 
-    #status {
-      font-size: 13px;
-      color: #888;
-      margin-top: 14px;
-      min-height: 20px;
+    .controls {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      gap: 12px;
+      margin-top: 20px;
+      flex-shrink: 0;
     }
 
-    .status-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ccc;
-      transition: background 0.3s;
+    #saveBtn {
+      flex: 1;
+      padding: 16px 20px;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      letter-spacing: 0.5px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      background: #e3f2fd;
+      color: #0d47a1;
+      order: 1;
     }
 
-    .status-dot.recording {
-      background: #c62828;
-      animation: pulse 1s infinite;
+    #saveBtn:active {
+      transform: scale(0.97);
     }
 
-    .status-dot.listening {
-      background: #2e7d32;
-      animation: pulse 0.8s infinite;
+    #saveBtn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
+    #mainBtn {
+      flex: 2;
+      padding: 16px 20px;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      letter-spacing: 0.5px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      background: #e8f5e9;
+      color: #1b5e20;
+      order: 2;
+    }
+
+    #mainBtn:active {
+      transform: scale(0.97);
+    }
+
+    #mainBtn.recording {
+      background: #ffebee;
+      color: #b71c1c;
+    }
+
+    #mainBtn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
     }
 
     .toast {
       position: fixed;
-      bottom: 30px;
+      bottom: 100px;
       left: 50%;
       transform: translateX(-50%);
       background: #323232;
@@ -163,6 +148,7 @@
       transition: opacity 0.3s;
       pointer-events: none;
       z-index: 1000;
+      white-space: nowrap;
     }
 
     .toast.show {
@@ -172,16 +158,11 @@
 </head>
 <body>
   <div class="container">
-    <div class="controls">
-      <button id="mainBtn">🎤 Старт</button>
-      <button id="saveBtn" disabled>💾 Сохранить</button>
-    </div>
-
     <textarea id="transcript" placeholder="Нажмите «Старт» и говорите..."></textarea>
 
-    <div id="status">
-      <span class="status-dot" id="statusDot"></span>
-      <span class="status-text" id="statusText">Готов</span>
+    <div class="controls">
+      <button id="saveBtn" disabled>Сохранить</button>
+      <button id="mainBtn">Старт</button>
     </div>
   </div>
 
@@ -192,8 +173,6 @@
       const transcript = document.getElementById('transcript');
       const mainBtn = document.getElementById('mainBtn');
       const saveBtn = document.getElementById('saveBtn');
-      const statusText = document.getElementById('statusText');
-      const statusDot = document.getElementById('statusDot');
       const toast = document.getElementById('toast');
 
       let recognition = null;
@@ -205,7 +184,8 @@
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        statusText.textContent = '❌ Браузер не поддерживает распознавание речи';
+        toast.textContent = '❌ Браузер не поддерживает распознавание речи';
+        toast.classList.add('show');
         mainBtn.disabled = true;
         return;
       }
@@ -219,26 +199,13 @@
         }, 3000);
       }
 
-      function setStatus(text) {
-        statusText.textContent = text;
-      }
-
-      function setDotState(state) {
-        statusDot.className = 'status-dot';
-        if (state === 'recording') {
-          statusDot.classList.add('recording');
-        } else if (state === 'listening') {
-          statusDot.classList.add('listening');
-        }
-      }
-
       function updateButton(isRecording) {
         if (isRecording) {
-          mainBtn.textContent = '⏹ Стоп';
+          mainBtn.textContent = 'Стоп';
           mainBtn.className = 'recording';
           saveBtn.disabled = true;
         } else {
-          mainBtn.textContent = '🎤 Старт';
+          mainBtn.textContent = 'Старт';
           mainBtn.className = '';
           if (finalTranscript.trim()) {
             saveBtn.disabled = false;
@@ -263,8 +230,6 @@
           isListening = true;
           isManualStop = false;
           updateButton(true);
-          setStatus('Слушаю...');
-          setDotState('listening');
         };
 
         recognition.onresult = (event) => {
@@ -293,48 +258,29 @@
 
           transcript.value = displayText;
           transcript.scrollTop = transcript.scrollHeight;
-
-          if (interimText) {
-            setDotState('listening');
-          }
         };
 
         recognition.onerror = (event) => {
           if (event.error === 'not-allowed') {
-            setStatus('❌ Доступ к микрофону запрещён');
-            setDotState('');
+            showToast('❌ Доступ к микрофону запрещён');
             stopListening();
           } else if (event.error === 'no-speech') {
-            setStatus('Тишина...');
-            setDotState('recording');
+            // Ничего не показываем
           } else if (event.error === 'audio-capture') {
-            setStatus('❌ Микрофон недоступен');
-            setDotState('');
+            showToast('❌ Микрофон недоступен');
             stopListening();
           } else if (event.error === 'network') {
-            setStatus('🌐 Проблема с сетью');
+            showToast('🌐 Проблема с сетью');
             if (isListening && !isManualStop) {
               setTimeout(() => {
                 try { recognition.start(); } catch (e) {}
               }, 1000);
-            }
-          } else {
-            setStatus(`⚠ ${event.error}`);
-            if (isListening && !isManualStop && event.error !== 'not-allowed') {
-              setTimeout(() => {
-                try { 
-                  if (!isManualStop) recognition.start(); 
-                } catch (e) {}
-              }, 500);
             }
           }
         };
 
         recognition.onend = () => {
           if (isListening && !isManualStop) {
-            setStatus('Перезапуск...');
-            setDotState('recording');
-            
             if (restartTimeout) clearTimeout(restartTimeout);
             
             restartTimeout = setTimeout(() => {
@@ -353,25 +299,7 @@
           } else {
             isListening = false;
             updateButton(false);
-            setStatus('Остановлено');
-            setDotState('');
           }
-        };
-
-        recognition.onsoundstart = () => {
-          setStatus('Слушаю...');
-          setDotState('listening');
-        };
-
-        recognition.onsoundend = () => {
-          if (isListening && !isManualStop) {
-            setStatus('Пауза');
-            setDotState('recording');
-          }
-        };
-
-        recognition.onspeechstart = () => {
-          setDotState('listening');
         };
       }
 
@@ -388,8 +316,6 @@
 
         isManualStop = false;
         isListening = true;
-        setStatus('Запуск...');
-        setDotState('recording');
 
         try {
           recognition.start();
@@ -397,13 +323,10 @@
           if (e.message && e.message.includes('already started')) {
             isListening = true;
             updateButton(true);
-            setStatus('Слушаю...');
-            setDotState('listening');
           } else {
-            setStatus('❌ Ошибка запуска');
+            showToast('❌ Ошибка запуска');
             isListening = false;
             updateButton(false);
-            setDotState('');
           }
         }
       }
@@ -424,8 +347,6 @@
         }
 
         updateButton(false);
-        setStatus('Остановлено');
-        setDotState('');
       }
 
       function toggleListening() {
@@ -452,20 +373,68 @@
         const seconds = String(now.getSeconds()).padStart(2, '0');
         
         const filename = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}.txt`;
-        
-        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        showToast(`✅ Сохранено: ${filename}`);
+
+        try {
+          const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+          }, 10000);
+          
+          // Очищаем local storage после успешного сохранения
+          try {
+            localStorage.removeItem('transcript');
+            localStorage.removeItem('finalTranscript');
+          } catch (e) {}
+          
+          // Очищаем текст в поле
+          transcript.value = '';
+          finalTranscript = '';
+          saveBtn.disabled = true;
+          
+          showToast(`✅ Сохранено: ${filename}`);
+        } catch (error) {
+          showToast('❌ Ошибка сохранения');
+          console.error('Ошибка сохранения:', error);
+        }
       }
+
+      // Загружаем данные из localStorage при запуске
+      try {
+        const savedText = localStorage.getItem('transcript');
+        const savedFinal = localStorage.getItem('finalTranscript');
+        if (savedText) {
+          transcript.value = savedText;
+        }
+        if (savedFinal) {
+          finalTranscript = savedFinal;
+          if (finalTranscript.trim()) {
+            saveBtn.disabled = false;
+          }
+        }
+      } catch (e) {}
+
+      // Сохраняем в localStorage при каждом изменении
+      transcript.addEventListener('input', () => {
+        try {
+          localStorage.setItem('transcript', transcript.value);
+          localStorage.setItem('finalTranscript', finalTranscript);
+        } catch (e) {}
+        
+        if (!isListening) {
+          if (finalTranscript.trim()) {
+            saveBtn.disabled = false;
+          } else {
+            saveBtn.disabled = true;
+          }
+        }
+      });
 
       mainBtn.addEventListener('click', toggleListening);
       saveBtn.addEventListener('click', saveToFile);
@@ -485,42 +454,15 @@
         }
       });
 
-      transcript.addEventListener('input', () => {
-        if (transcript.value && !transcript.value.startsWith(finalTranscript) && !finalTranscript.startsWith(transcript.value)) {
-          finalTranscript = transcript.value;
-        }
-        if (!isListening) {
-          if (finalTranscript.trim()) {
-            saveBtn.disabled = false;
-          } else {
-            saveBtn.disabled = true;
-          }
-        }
-        try {
-          chrome.storage.local.set({ transcript: transcript.value });
-        } catch (e) {}
-      });
-
       window.addEventListener('beforeunload', () => {
         if (isListening) {
           stopListening(true);
         }
         try {
-          chrome.storage.local.set({ transcript: transcript.value });
+          localStorage.setItem('transcript', transcript.value);
+          localStorage.setItem('finalTranscript', finalTranscript);
         } catch (e) {}
       });
-
-      try {
-        chrome.storage.local.get(['transcript'], (result) => {
-          if (result.transcript) {
-            transcript.value = result.transcript;
-            finalTranscript = result.transcript;
-            if (finalTranscript.trim()) {
-              saveBtn.disabled = false;
-            }
-          }
-        });
-      } catch (e) {}
 
       initRecognition();
     });
