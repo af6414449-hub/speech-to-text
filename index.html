@@ -198,6 +198,7 @@
       let interimText = '';
       let recognition = null;
       let restartTimer = null;
+      let permissionPrimed = false;
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -297,8 +298,31 @@
         }
       }
 
-      function startRec() {
+      async function ensureMicrophoneAccess() {
+        if (permissionPrimed) return true;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          showToast('❌ Нет доступа к микрофону в браузере');
+          return false;
+        }
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(track => track.stop());
+          permissionPrimed = true;
+          return true;
+        } catch (e) {
+          const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+          showToast(denied ? '❌ Разреши доступ к микрофону' : '❌ Микрофон недоступен');
+          return false;
+        }
+      }
+
+      async function startRec() {
         if (isRecording) return;
+
+        const hasAccess = await ensureMicrophoneAccess();
+        if (!hasAccess) return;
+
         if (!recognition) {
           recognition = new SpeechRecognition();
           recognition.lang = 'ru-RU';
