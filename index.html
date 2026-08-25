@@ -200,6 +200,8 @@
       let restartTimer = null;
       let permissionPrimed = false;
       let sessionBaseText = '';
+      let androidSessionText = '';
+      const isAndroid = /Android/i.test(navigator.userAgent);
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -286,7 +288,11 @@
       }
 
       function renderText() {
-        const display = [normalizeText(finalText), safeInterim(finalText, interimText)].filter(Boolean).join(' ').trim();
+        const base = normalizeText(finalText);
+        const androidLive = isAndroid ? normalizeText(androidSessionText) : '';
+        const display = isAndroid
+          ? [base, androidLive].filter(Boolean).join(' ').trim()
+          : [base, safeInterim(finalText, interimText)].filter(Boolean).join(' ').trim();
         if (text.value !== display) {
           text.value = display;
           text.scrollTop = text.scrollHeight;
@@ -360,8 +366,8 @@
         if (!recognition) {
           recognition = new SpeechRecognition();
           recognition.lang = 'ru-RU';
-          recognition.continuous = true;
-          recognition.interimResults = true;
+          recognition.continuous = !isAndroid;
+          recognition.interimResults = !isAndroid;
           recognition.maxAlternatives = 1;
 
           recognition.onresult = function(e) {
@@ -374,14 +380,20 @@
               if (!chunk) continue;
               if (r.isFinal) {
                 sessionFinal = appendUniqueTranscript(sessionFinal, chunk);
-              } else {
+              } else if (!isAndroid) {
                 sessionInterim = appendUniqueTranscript(sessionInterim, chunk);
               }
             }
 
             sessionFinal = collapseRepeatedTailBlocks(sessionFinal);
-            finalText = collapseRepeatedTailBlocks(appendUniqueTranscript(sessionBaseText, sessionFinal));
-            interimText = sessionInterim;
+
+            if (isAndroid) {
+              androidSessionText = sessionFinal;
+              interimText = '';
+            } else {
+              finalText = collapseRepeatedTailBlocks(appendUniqueTranscript(sessionBaseText, sessionFinal));
+              interimText = sessionInterim;
+            }
 
             updateUI();
             persistText();
@@ -400,16 +412,25 @@
           };
 
           recognition.onend = function() {
+            if (isAndroid && androidSessionText) {
+              finalText = collapseRepeatedTailBlocks(appendUniqueTranscript(sessionBaseText, androidSessionText));
+              sessionBaseText = finalText;
+              androidSessionText = '';
+              updateUI();
+              persistText();
+            }
+
             if (isRecording && !recognition._manualStop) {
               clearTimeout(restartTimer);
               restartTimer = setTimeout(() => {
                 if (isRecording) {
                   try { recognition.start(); } catch(_) {}
                 }
-              }, 300);
+              }, isAndroid ? 120 : 300);
             } else {
               isRecording = false;
               recognition._manualStop = false;
+              androidSessionText = '';
               updateUI();
               persistText();
             }
@@ -418,6 +439,7 @@
 
         isRecording = true;
         sessionBaseText = normalizeText(finalText || text.value);
+        androidSessionText = '';
         recognition._manualStop = false;
         updateUI();
         try { recognition.start(); } catch(_) {}
@@ -432,6 +454,7 @@
         }
         finalText = collapseRepeatedTailBlocks(normalizeText(text.value));
         interimText = '';
+        androidSessionText = '';
         updateUI();
         persistText();
       }
