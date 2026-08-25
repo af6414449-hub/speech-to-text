@@ -3,384 +3,280 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Транскрибатор</title>
+  <title>Диктофон</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f5f5f5;
       display: flex;
       justify-content: center;
       align-items: center;
       padding: 16px;
-      height: 100dvh;
+      font-family: system-ui, -apple-system, sans-serif;
     }
-    .container {
+    .app {
       width: 100%;
-      max-width: 800px;
+      max-width: 600px;
       height: 100%;
-      max-height: 780px;
-      background: #fff;
+      max-height: 700px;
+      background: white;
       border-radius: 24px;
-      padding: 24px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
       position: relative;
-      overflow: hidden;
     }
-    #transcript {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: 100%;
-      height: 100%;
-      background: transparent;
+    .text {
+      flex: 1;
       border: none;
-      padding: 30px 24px 160px 24px;
+      resize: none;
       font-size: 20px;
       line-height: 1.8;
-      resize: none;
       outline: none;
       font-family: inherit;
-      overflow-y: auto;
-      z-index: 1;
-      color: #1a1a1a;
+      padding: 10px 0;
     }
-    #transcript::placeholder { color: #b0b0b0; }
-    .controls {
-      position: absolute;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
+    .text::placeholder { color: #bbb; }
+    .buttons {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 16px;
-      z-index: 2;
+      padding-top: 16px;
+      border-top: 1px solid #eee;
     }
-    #mainBtn {
-      width: 72px;
-      height: 72px;
+    .record-btn {
+      width: 80px;
+      height: 80px;
       border-radius: 50%;
       border: none;
-      font-size: 32px;
+      font-size: 36px;
       cursor: pointer;
-      background: #66bb6a;
-      color: #fff;
-      box-shadow: 0 4px 16px rgba(102,187,106,0.35);
+      background: #4CAF50;
+      color: white;
       transition: 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      box-shadow: 0 4px 12px rgba(76,175,80,0.3);
     }
-    #mainBtn:active { transform: scale(0.92); }
-    #mainBtn.recording { background: #ef5350; box-shadow: 0 4px 16px rgba(239,83,80,0.35); }
-    #mainBtn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-    #saveBtn {
-      width: 56px;
-      height: 56px;
+    .record-btn:active { transform: scale(0.9); }
+    .record-btn.active {
+      background: #f44336;
+      box-shadow: 0 4px 12px rgba(244,67,54,0.3);
+    }
+    .save-btn {
+      width: 60px;
+      height: 60px;
       border-radius: 50%;
       border: none;
-      font-size: 24px;
+      font-size: 28px;
       cursor: pointer;
       background: #e0e0e0;
-      color: #9e9e9e;
+      color: #999;
       transition: 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
-    #saveBtn:active { transform: scale(0.92); }
-    #saveBtn:disabled { opacity: 0.3; cursor: not-allowed; }
-    #saveBtn.active { background: #42a5f5; color: #fff; box-shadow: 0 2px 12px rgba(66,165,245,0.35); }
+    .save-btn.active {
+      background: #2196F3;
+      color: white;
+    }
+    .save-btn:active { transform: scale(0.9); }
     .toast {
       position: fixed;
-      bottom: 140px;
+      bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
-      background: #323232;
-      color: #fff;
+      background: #333;
+      color: white;
       padding: 12px 24px;
       border-radius: 8px;
       font-size: 14px;
       opacity: 0;
-      transition: opacity 0.3s;
+      transition: 0.3s;
       pointer-events: none;
-      z-index: 1000;
       white-space: nowrap;
     }
     .toast.show { opacity: 1; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <textarea id="transcript" placeholder="Нажмите ▶ и говорите..."></textarea>
-    <div class="controls">
-      <button id="mainBtn">▶</button>
-      <button id="saveBtn" disabled>💾</button>
+  <div class="app">
+    <textarea class="text" id="text" placeholder="Нажмите круглую кнопку и говорите..."></textarea>
+    <div class="buttons">
+      <button class="record-btn" id="record">▶</button>
+      <button class="save-btn" id="save" disabled>💾</button>
     </div>
   </div>
   <div class="toast" id="toast"></div>
 
   <script>
-    (function() {
-      const transcript = document.getElementById('transcript');
-      const mainBtn = document.getElementById('mainBtn');
-      const saveBtn = document.getElementById('saveBtn');
-      const toast = document.getElementById('toast');
+    const text = document.getElementById('text');
+    const record = document.getElementById('record');
+    const save = document.getElementById('save');
+    const toast = document.getElementById('toast');
 
-      let recognition = null;
-      let isListening = false;
-      let finalText = '';
-      let interimText = '';
-      let restartTimer = null;
-      let isManualStop = false;
-      let toastTimer = null;
+    let isRecording = false;
+    let finalText = '';
+    let interimText = '';
+    let recognition = null;
+    let restartTimer = null;
 
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        toast.textContent = '❌ Браузер не поддерживает распознавание';
-        toast.classList.add('show');
-        mainBtn.disabled = true;
-        return;
-      }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.textContent = '❌ Браузер не поддерживает';
+      toast.classList.add('show');
+      record.disabled = true;
+    }
 
-      function showToast(msg) {
-        toast.textContent = msg;
-        toast.classList.add('show');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
-      }
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => toast.classList.remove('show'), 3000);
+    }
 
-      function render() {
-        transcript.value = finalText + (interimText ? ' ' + interimText : '');
-        transcript.scrollTop = transcript.scrollHeight;
-      }
-
-      function updateButtons(recording) {
-        if (recording) {
-          mainBtn.textContent = '⬛';
-          mainBtn.className = 'recording';
-          saveBtn.disabled = true;
-          saveBtn.className = '';
+    function updateUI() {
+      if (isRecording) {
+        record.textContent = '■';
+        record.className = 'record-btn active';
+        save.disabled = true;
+        save.className = 'save-btn';
+      } else {
+        record.textContent = '▶';
+        record.className = 'record-btn';
+        if (finalText.trim()) {
+          save.disabled = false;
+          save.className = 'save-btn active';
         } else {
-          mainBtn.textContent = '▶';
-          mainBtn.className = '';
-          if (finalText.trim()) {
-            saveBtn.disabled = false;
-            saveBtn.className = 'active';
-          } else {
-            saveBtn.disabled = true;
-            saveBtn.className = '';
-          }
+          save.disabled = true;
+          save.className = 'save-btn';
         }
       }
+      text.value = finalText + (interimText ? ' ' + interimText : '');
+      text.scrollTop = text.scrollHeight;
+    }
 
-      function initRecognition() {
-        if (recognition) {
-          try { recognition.abort(); } catch(_) {}
-        }
+    function startRec() {
+      if (isRecording) return;
+      if (!recognition) {
         recognition = new SpeechRecognition();
         recognition.lang = 'ru-RU';
         recognition.continuous = true;
         recognition.interimResults = true;
 
-        recognition.onstart = () => {
-          isListening = true;
-          isManualStop = false;
-          updateButtons(true);
-        };
-
-        recognition.onresult = (event) => {
+        recognition.onresult = function(e) {
           let newFinal = '';
           let newInterim = '';
-
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const r = event.results[i];
-            const chunk = r[0].transcript;
-            if (r.isFinal) {
-              newFinal += chunk + ' ';
-            } else {
-              newInterim += chunk;
-            }
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const r = e.results[i];
+            if (r.isFinal) newFinal += r[0].transcript + ' ';
+            else newInterim += r[0].transcript;
           }
-
           if (newFinal) {
             finalText += newFinal;
             interimText = '';
-          } else if (newInterim) {
+          } else {
             interimText = newInterim;
           }
-
-          render();
+          updateUI();
         };
 
-        recognition.onerror = (e) => {
+        recognition.onerror = function(e) {
           if (e.error === 'not-allowed') {
-            showToast('❌ Доступ к микрофону запрещён');
-            stopListening();
+            showToast('❌ Нет доступа к микрофону');
+            stopRec();
+          } else if (e.error === 'no-speech') {
+            // игнорируем
           } else if (e.error === 'audio-capture') {
             showToast('❌ Микрофон недоступен');
-            stopListening();
-          } else if (e.error === 'network') {
-            showToast('🌐 Проблема с сетью');
-            if (isListening && !isManualStop) {
-              setTimeout(() => { try { recognition.start(); } catch(_) {} }, 1000);
-            }
+            stopRec();
           }
         };
 
-        recognition.onend = () => {
-          if (isListening && !isManualStop) {
+        recognition.onend = function() {
+          if (isRecording && !recognition._manualStop) {
             clearTimeout(restartTimer);
             restartTimer = setTimeout(() => {
-              if (isListening && !isManualStop) {
+              if (isRecording) {
                 try { recognition.start(); } catch(_) {}
               }
             }, 300);
           } else {
-            isListening = false;
-            updateButtons(false);
+            isRecording = false;
+            recognition._manualStop = false;
+            updateUI();
           }
         };
       }
 
-      function startListening() {
-        if (isListening) return;
-        if (!recognition) initRecognition();
-        isManualStop = false;
-        isListening = true;
-        try {
-          recognition.start();
-        } catch(e) {
-          if (e.message && e.message.includes('already started')) {
-            isListening = true;
-            updateButtons(true);
-          } else {
-            showToast('❌ Ошибка запуска');
-            isListening = false;
-            updateButtons(false);
-          }
-        }
+      isRecording = true;
+      recognition._manualStop = false;
+      updateUI();
+      try { recognition.start(); } catch(_) {}
+    }
+
+    function stopRec() {
+      isRecording = false;
+      recognition._manualStop = true;
+      clearTimeout(restartTimer);
+      try { recognition.stop(); } catch(_) {}
+      updateUI();
+    }
+
+    function toggleRec() {
+      if (isRecording) stopRec();
+      else startRec();
+    }
+
+    function saveFile() {
+      const text = finalText.trim();
+      if (!text) {
+        showToast('❌ Нет текста');
+        return;
       }
 
-      function stopListening(manual = true) {
-        isManualStop = manual;
-        isListening = false;
-        clearTimeout(restartTimer);
-        if (recognition) {
-          try { recognition.stop(); } catch(_) {}
-        }
-        updateButtons(false);
-      }
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const name = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
+        '_' + pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds()) + '.txt';
 
-      function toggle() {
-        if (isListening) stopListening(true);
-        else startListening();
-      }
-
-      function saveFile() {
-        const text = finalText.trim();
-        if (!text) {
-          showToast('❌ Нет текста');
-          return;
-        }
-
-        const now = new Date();
-        const pad = n => String(n).padStart(2, '0');
-        const filename =
-          now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
-          '_' + pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds()) +
-          '.txt';
-
-        try {
-          // Телефоны: используем Web Share API
-          if (navigator.share) {
-            const blob = new Blob([text], { type: 'text/plain' });
-            const file = new File([blob], filename, { type: 'text/plain' });
-            navigator.share({
-              title: 'Транскрибация',
-              text: text,
-              files: [file]
-            }).then(() => {
-              showToast('✅ Файл передан в "Поделиться"');
-            }).catch(err => {
-              if (err.name !== 'AbortError') {
-                showToast('❌ Ошибка: ' + err.message);
-              }
-            });
-          } else {
-            // Компьютер: стандартное скачивание
-            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(link.href), 10000);
-            showToast('✅ Сохранено: ' + filename);
-          }
-
-          // Очищаем после сохранения
-          finalText = '';
-          interimText = '';
-          transcript.value = '';
-          saveBtn.disabled = true;
-          saveBtn.className = '';
-          localStorage.removeItem('finalText');
-          localStorage.removeItem('transcript');
-
-        } catch(err) {
-          showToast('❌ Ошибка: ' + err.message);
-        }
-      }
-
-      // --- Загрузка из localStorage ---
       try {
-        const saved = localStorage.getItem('finalText');
-        if (saved) {
-          finalText = saved;
-          transcript.value = saved;
-          if (finalText.trim()) {
-            saveBtn.disabled = false;
-            saveBtn.className = 'active';
-          }
+        if (navigator.share) {
+          const file = new File([text], name, { type: 'text/plain' });
+          navigator.share({ files: [file] }).then(() => {
+            showToast('✅ Файл передан в "Поделиться"');
+          }).catch(err => {
+            if (err.name !== 'AbortError') showToast('❌ ' + err.message);
+          });
+        } else {
+          const blob = new Blob([text], { type: 'text/plain' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          a.click();
+          showToast('✅ Сохранено: ' + name);
         }
-      } catch(_) {}
+        finalText = '';
+        interimText = '';
+        updateUI();
+      } catch(e) {
+        showToast('❌ Ошибка: ' + e.message);
+      }
+    }
 
-      // --- События ---
-      mainBtn.addEventListener('click', toggle);
-      saveBtn.addEventListener('click', saveFile);
+    record.addEventListener('click', toggleRec);
+    save.addEventListener('click', saveFile);
 
-      transcript.addEventListener('input', function() {
-        try {
-          localStorage.setItem('finalText', finalText);
-          localStorage.setItem('transcript', transcript.value);
-        } catch(_) {}
-        if (!isListening && finalText.trim()) {
-          saveBtn.disabled = false;
-          saveBtn.className = 'active';
-        }
-      });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        toggleRec();
+      }
+      if (e.key === 'Escape' && isRecording) {
+        e.preventDefault();
+        stopRec();
+      }
+    });
 
-      document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); toggle(); }
-        if (e.key === 'Escape' && isListening) { e.preventDefault(); stopListening(true); }
-        if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveFile(); }
-      });
-
-      window.addEventListener('beforeunload', () => {
-        if (isListening) stopListening(true);
-        try {
-          localStorage.setItem('finalText', finalText);
-          localStorage.setItem('transcript', transcript.value);
-        } catch(_) {}
-      });
-
-      initRecognition();
-    })();
+    updateUI();
   </script>
 </body>
 </html>
