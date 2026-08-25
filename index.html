@@ -112,16 +112,11 @@
 
     #mainBtn:active {
       transform: scale(0.92);
-      box-shadow: 0 2px 8px rgba(102, 187, 106, 0.25);
     }
 
     #mainBtn.recording {
       background: #ef5350;
       box-shadow: 0 4px 16px rgba(239, 83, 80, 0.35);
-    }
-
-    #mainBtn.recording:active {
-      box-shadow: 0 2px 8px rgba(239, 83, 80, 0.25);
     }
 
     #mainBtn:disabled {
@@ -168,10 +163,6 @@
       box-shadow: 0 2px 12px rgba(66, 165, 245, 0.35);
     }
 
-    #saveBtn.active:active {
-      box-shadow: 0 1px 6px rgba(66, 165, 245, 0.25);
-    }
-
     .toast {
       position: fixed;
       bottom: 140px;
@@ -196,70 +187,20 @@
     }
 
     @media (max-height: 640px) {
-      .container {
-        max-height: 95vh;
-        padding: 16px;
-      }
-
-      #transcript {
-        padding: 20px 16px 140px 16px;
-        font-size: 17px;
-        line-height: 1.6;
-      }
-
-      #mainBtn {
-        width: 64px;
-        height: 64px;
-        font-size: 28px;
-      }
-
-      #saveBtn {
-        width: 48px;
-        height: 48px;
-        font-size: 20px;
-      }
-
-      .controls {
-        gap: 12px;
-        bottom: 24px;
-      }
-
-      .toast {
-        bottom: 120px;
-        font-size: 13px;
-        padding: 10px 20px;
-      }
+      .container { max-height: 95vh; padding: 16px; }
+      #transcript { padding: 20px 16px 140px 16px; font-size: 17px; line-height: 1.6; }
+      #mainBtn { width: 64px; height: 64px; font-size: 28px; }
+      #saveBtn { width: 48px; height: 48px; font-size: 20px; }
+      .controls { gap: 12px; bottom: 24px; }
+      .toast { bottom: 120px; font-size: 13px; padding: 10px 20px; }
     }
 
     @media (max-height: 500px) {
-      #transcript {
-        padding: 16px 12px 120px 12px;
-        font-size: 15px;
-        line-height: 1.5;
-      }
-
-      #mainBtn {
-        width: 56px;
-        height: 56px;
-        font-size: 24px;
-      }
-
-      #saveBtn {
-        width: 42px;
-        height: 42px;
-        font-size: 18px;
-      }
-
-      .controls {
-        gap: 10px;
-        bottom: 18px;
-      }
-
-      .toast {
-        bottom: 100px;
-        font-size: 12px;
-        padding: 8px 16px;
-      }
+      #transcript { padding: 16px 12px 120px 12px; font-size: 15px; line-height: 1.5; }
+      #mainBtn { width: 56px; height: 56px; font-size: 24px; }
+      #saveBtn { width: 42px; height: 42px; font-size: 18px; }
+      .controls { gap: 10px; bottom: 18px; }
+      .toast { bottom: 100px; font-size: 12px; padding: 8px 16px; }
     }
   </style>
 </head>
@@ -276,7 +217,7 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    (function() {
       const transcript = document.getElementById('transcript');
       const mainBtn = document.getElementById('mainBtn');
       const saveBtn = document.getElementById('saveBtn');
@@ -284,11 +225,11 @@
 
       let recognition = null;
       let isListening = false;
-      let finalTranscript = '';
-      let interimTranscript = '';
-      let restartTimeout = null;
+      let finalText = '';          // только финальный текст
+      let interimText = '';        // только промежуточный
+      let restartTimer = null;
       let isManualStop = false;
-      let toastTimeout = null;
+      let toastTimer = null;
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -298,16 +239,14 @@
         return;
       }
 
-      function showToast(message) {
-        toast.textContent = message;
+      function showToast(msg) {
+        toast.textContent = msg;
         toast.classList.add('show');
-        if (toastTimeout) clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-          toast.classList.remove('show');
-        }, 3000);
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
       }
 
-      function updateButton(isRecording) {
+      function updateUI(isRecording) {
         if (isRecording) {
           mainBtn.textContent = '⬛';
           mainBtn.className = 'recording';
@@ -316,7 +255,7 @@
         } else {
           mainBtn.textContent = '▶';
           mainBtn.className = '';
-          if (finalTranscript.trim()) {
+          if (finalText.trim()) {
             saveBtn.disabled = false;
             saveBtn.className = 'active';
           } else {
@@ -326,18 +265,18 @@
         }
       }
 
-      function updateTranscript() {
-        let displayText = finalTranscript;
-        if (interimTranscript) {
-          displayText += (displayText ? ' ' : '') + interimTranscript;
+      function renderTranscript() {
+        let display = finalText;
+        if (interimText) {
+          display += (display ? ' ' : '') + interimText;
         }
-        transcript.value = displayText;
+        transcript.value = display;
         transcript.scrollTop = transcript.scrollHeight;
       }
 
       function initRecognition() {
         if (recognition) {
-          try { recognition.abort(); } catch (e) {}
+          try { recognition.abort(); } catch (_) {}
         }
 
         recognition = new SpeechRecognition();
@@ -346,20 +285,19 @@
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
 
-        recognition.onstart = () => {
+        recognition.onstart = function() {
           isListening = true;
           isManualStop = false;
-          updateButton(true);
+          updateUI(true);
         };
 
-        recognition.onresult = (event) => {
+        recognition.onresult = function(event) {
           let newFinal = '';
           let newInterim = '';
 
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const result = event.results[i];
             const chunk = result[0].transcript;
-
             if (result.isFinal) {
               newFinal += chunk + ' ';
             } else {
@@ -368,67 +306,48 @@
           }
 
           if (newFinal) {
-            finalTranscript += newFinal;
-            interimTranscript = '';
-          } else {
-            interimTranscript = newInterim;
+            finalText += newFinal;
+            interimText = '';
+          } else if (newInterim) {
+            interimText = newInterim;
           }
 
-          updateTranscript();
+          renderTranscript();
         };
 
-        recognition.onerror = (event) => {
+        recognition.onerror = function(event) {
           if (event.error === 'not-allowed') {
             showToast('❌ Доступ к микрофону запрещён');
             stopListening();
-          } else if (event.error === 'no-speech') {
-            // ничего не делаем
           } else if (event.error === 'audio-capture') {
             showToast('❌ Микрофон недоступен');
             stopListening();
           } else if (event.error === 'network') {
             showToast('🌐 Проблема с сетью');
             if (isListening && !isManualStop) {
-              setTimeout(() => {
-                try { recognition.start(); } catch (e) {}
-              }, 1000);
+              setTimeout(() => { try { recognition.start(); } catch (_) {} }, 1000);
             }
           }
         };
 
-        recognition.onend = () => {
+        recognition.onend = function() {
           if (isListening && !isManualStop) {
-            if (restartTimeout) clearTimeout(restartTimeout);
-            restartTimeout = setTimeout(() => {
+            clearTimeout(restartTimer);
+            restartTimer = setTimeout(() => {
               if (isListening && !isManualStop) {
-                try {
-                  recognition.start();
-                } catch (e) {
-                  if (isListening && !isManualStop) {
-                    restartTimeout = setTimeout(() => {
-                      try { recognition.start(); } catch (err) {}
-                    }, 500);
-                  }
-                }
+                try { recognition.start(); } catch (_) {}
               }
             }, 300);
           } else {
             isListening = false;
-            updateButton(false);
+            updateUI(false);
           }
         };
       }
 
       function startListening() {
         if (isListening) return;
-
-        if (transcript.value && !finalTranscript) {
-          finalTranscript = transcript.value;
-        }
-
-        if (!recognition) {
-          initRecognition();
-        }
+        if (!recognition) initRecognition();
 
         isManualStop = false;
         isListening = true;
@@ -438,11 +357,11 @@
         } catch (e) {
           if (e.message && e.message.includes('already started')) {
             isListening = true;
-            updateButton(true);
+            updateUI(true);
           } else {
             showToast('❌ Ошибка запуска');
             isListening = false;
-            updateButton(false);
+            updateUI(false);
           }
         }
       }
@@ -450,112 +369,92 @@
       function stopListening(manual = true) {
         isManualStop = manual;
         isListening = false;
-        
-        if (restartTimeout) {
-          clearTimeout(restartTimeout);
-          restartTimeout = null;
-        }
-
+        clearTimeout(restartTimer);
         if (recognition) {
-          try {
-            recognition.stop();
-          } catch (e) {}
+          try { recognition.stop(); } catch (_) {}
         }
-
-        updateButton(false);
+        updateUI(false);
       }
 
       function toggleListening() {
-        if (isListening) {
-          stopListening(true);
-        } else {
-          startListening();
-        }
+        if (isListening) stopListening(true);
+        else startListening();
       }
 
-      function saveToFile() {
-        const text = finalTranscript.trim();
+      function downloadFile() {
+        const text = finalText.trim();
         if (!text) {
           showToast('❌ Нет текста для сохранения');
           return;
         }
 
         const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        
-        const filename = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}.txt`;
+        const pad = n => String(n).padStart(2, '0');
+        const filename =
+          now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
+          '_' + pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds()) +
+          '.txt';
 
         try {
           const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-          
-          // Универсальный способ скачивания для всех устройств
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.download = filename;
-          link.style.display = 'none';
-          document.body.appendChild(link);
-          
-          // Для мобильных устройств важно явно указать MIME-тип
-          if (navigator.msSaveBlob) {
-            // Для Internet Explorer / Edge
-            navigator.msSaveBlob(blob, filename);
-          } else {
-            link.click();
-          }
-          
+          const url = URL.createObjectURL(blob);
+
+          // Создаём ссылку и кликаем по ней
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+
+          // Удаляем через секунду
           setTimeout(() => {
-            document.body.removeChild(link);
-            URL.revokeObjectURL(link.href);
-          }, 10000);
-          
-          // Очищаем localStorage
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 1000);
+
+          // Очищаем
           try {
             localStorage.removeItem('transcript');
-            localStorage.removeItem('finalTranscript');
-          } catch (e) {}
-          
+            localStorage.removeItem('finalText');
+          } catch (_) {}
+
           transcript.value = '';
-          finalTranscript = '';
-          interimTranscript = '';
+          finalText = '';
+          interimText = '';
           saveBtn.disabled = true;
           saveBtn.className = '';
-          
-          showToast(`✅ Сохранено: ${filename}`);
-        } catch (error) {
+
+          showToast('✅ Сохранено: ' + filename);
+        } catch (err) {
           showToast('❌ Ошибка сохранения');
-          console.error('Ошибка сохранения:', error);
+          console.error(err);
         }
       }
 
-      // Загружаем из localStorage
+      // --- Восстановление из localStorage ---
       try {
-        const savedText = localStorage.getItem('transcript');
-        const savedFinal = localStorage.getItem('finalTranscript');
-        if (savedText) {
-          transcript.value = savedText;
-        }
+        const saved = localStorage.getItem('transcript');
+        const savedFinal = localStorage.getItem('finalText');
+        if (saved) transcript.value = saved;
         if (savedFinal) {
-          finalTranscript = savedFinal;
-          if (finalTranscript.trim()) {
+          finalText = savedFinal;
+          if (finalText.trim()) {
             saveBtn.disabled = false;
             saveBtn.className = 'active';
           }
         }
-      } catch (e) {}
+      } catch (_) {}
 
-      transcript.addEventListener('input', () => {
+      // --- События ---
+      transcript.addEventListener('input', function() {
         try {
           localStorage.setItem('transcript', transcript.value);
-          localStorage.setItem('finalTranscript', finalTranscript);
-        } catch (e) {}
-        
+          localStorage.setItem('finalText', finalText);
+        } catch (_) {}
+
         if (!isListening) {
-          if (finalTranscript.trim()) {
+          if (finalText.trim()) {
             saveBtn.disabled = false;
             saveBtn.className = 'active';
           } else {
@@ -566,9 +465,9 @@
       });
 
       mainBtn.addEventListener('click', toggleListening);
-      saveBtn.addEventListener('click', saveToFile);
+      saveBtn.addEventListener('click', downloadFile);
 
-      document.addEventListener('keydown', (e) => {
+      document.addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.key === 'Enter') {
           e.preventDefault();
           toggleListening();
@@ -579,22 +478,20 @@
         }
         if (e.ctrlKey && e.key === 's') {
           e.preventDefault();
-          saveToFile();
+          downloadFile();
         }
       });
 
-      window.addEventListener('beforeunload', () => {
-        if (isListening) {
-          stopListening(true);
-        }
+      window.addEventListener('beforeunload', function() {
+        if (isListening) stopListening(true);
         try {
           localStorage.setItem('transcript', transcript.value);
-          localStorage.setItem('finalTranscript', finalTranscript);
-        } catch (e) {}
+          localStorage.setItem('finalText', finalText);
+        } catch (_) {}
       });
 
       initRecognition();
-    });
+    })();
   </script>
 </body>
 </html>
