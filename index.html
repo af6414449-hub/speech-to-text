@@ -40,13 +40,49 @@
     .text::placeholder { color: #bbb; }
     .buttons {
       display: flex;
-      flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 16px;
       padding-top: 16px;
       border-top: 1px solid #eee;
     }
-    .record-btn {
+    .btn-clear {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      background: #ffebee;
+      color: #c62828;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-clear:active { transform: scale(0.9); }
+    .btn-clear:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-save {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      background: #e0e0e0;
+      color: #999;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-save:active { transform: scale(0.9); }
+    .btn-save.active {
+      background: #2196F3;
+      color: white;
+    }
+    .btn-save:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-record {
       width: 80px;
       height: 80px;
       border-radius: 50%;
@@ -57,28 +93,15 @@
       color: white;
       transition: 0.2s;
       box-shadow: 0 4px 12px rgba(76,175,80,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .record-btn:active { transform: scale(0.9); }
-    .record-btn.active {
+    .btn-record:active { transform: scale(0.9); }
+    .btn-record.active {
       background: #f44336;
       box-shadow: 0 4px 12px rgba(244,67,54,0.3);
     }
-    .save-btn {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      border: none;
-      font-size: 28px;
-      cursor: pointer;
-      background: #e0e0e0;
-      color: #999;
-      transition: 0.2s;
-    }
-    .save-btn.active {
-      background: #2196F3;
-      color: white;
-    }
-    .save-btn:active { transform: scale(0.9); }
     .toast {
       position: fixed;
       bottom: 30px;
@@ -99,200 +122,223 @@
 </head>
 <body>
   <div class="app">
-    <textarea class="text" id="text" placeholder="Нажмите круглую кнопку и говорите..."></textarea>
+    <textarea class="text" id="text" placeholder="Нажмите ▶ и говорите..."></textarea>
     <div class="buttons">
-      <button class="record-btn" id="record">▶</button>
-      <button class="save-btn" id="save" disabled>💾</button>
+      <button class="btn-clear" id="clear" disabled>✕</button>
+      <button class="btn-save" id="save" disabled>💾</button>
+      <button class="btn-record" id="record">▶</button>
     </div>
   </div>
   <div class="toast" id="toast"></div>
 
   <script>
-    const text = document.getElementById('text');
-    const record = document.getElementById('record');
-    const save = document.getElementById('save');
-    const toast = document.getElementById('toast');
+    (function() {
+      const text = document.getElementById('text');
+      const record = document.getElementById('record');
+      const save = document.getElementById('save');
+      const clear = document.getElementById('clear');
+      const toast = document.getElementById('toast');
 
-    let isRecording = false;
-    let finalText = '';
-    let interimText = '';
-    let recognition = null;
-    let restartTimer = null;
-    let lastFinalText = ''; // для защиты от дублей на Android
+      let isRecording = false;
+      let finalText = '';
+      let interimText = '';
+      let recognition = null;
+      let restartTimer = null;
+      let lastText = '';
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.textContent = '❌ Браузер не поддерживает';
-      toast.classList.add('show');
-      record.disabled = true;
-    }
-
-    function showToast(msg) {
-      toast.textContent = msg;
-      toast.classList.add('show');
-      clearTimeout(toast._timer);
-      toast._timer = setTimeout(() => toast.classList.remove('show'), 3000);
-    }
-
-    function updateUI() {
-      if (isRecording) {
-        record.textContent = '■';
-        record.className = 'record-btn active';
-        save.disabled = true;
-        save.className = 'save-btn';
-      } else {
-        record.textContent = '▶';
-        record.className = 'record-btn';
-        if (finalText.trim()) {
-          save.disabled = false;
-          save.className = 'save-btn active';
-        } else {
-          save.disabled = true;
-          save.className = 'save-btn';
-        }
-      }
-      const display = finalText + (interimText ? ' ' + interimText : '');
-      if (text.value !== display) {
-        text.value = display;
-      }
-      text.scrollTop = text.scrollHeight;
-    }
-
-    function startRec() {
-      if (isRecording) return;
-      if (!recognition) {
-        recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognition.onresult = function(e) {
-          let currentText = '';
-          let hasFinal = false;
-          
-          for (let i = e.resultIndex; i < e.results.length; i++) {
-            const r = e.results[i];
-            currentText += r[0].transcript;
-            if (r.isFinal) hasFinal = true;
-          }
-          
-          // Android фикс: если текст не изменился — игнорируем
-          if (currentText === lastFinalText && hasFinal) return;
-          
-          if (hasFinal) {
-            // Проверяем, не добавили ли мы уже этот текст
-            if (!finalText.endsWith(currentText + ' ')) {
-              finalText += currentText + ' ';
-            }
-            interimText = '';
-            lastFinalText = currentText;
-          } else {
-            interimText = currentText;
-          }
-          
-          updateUI();
-        };
-
-        recognition.onerror = function(e) {
-          if (e.error === 'not-allowed') {
-            showToast('❌ Нет доступа к микрофону');
-            stopRec();
-          } else if (e.error === 'no-speech') {
-            // игнорируем
-          } else if (e.error === 'audio-capture') {
-            showToast('❌ Микрофон недоступен');
-            stopRec();
-          }
-        };
-
-        recognition.onend = function() {
-          if (isRecording && !recognition._manualStop) {
-            clearTimeout(restartTimer);
-            restartTimer = setTimeout(() => {
-              if (isRecording) {
-                try { recognition.start(); } catch(_) {}
-              }
-            }, 300);
-          } else {
-            isRecording = false;
-            recognition._manualStop = false;
-            updateUI();
-          }
-        };
-      }
-
-      isRecording = true;
-      recognition._manualStop = false;
-      lastFinalText = '';
-      updateUI();
-      try { recognition.start(); } catch(_) {}
-    }
-
-    function stopRec() {
-      isRecording = false;
-      recognition._manualStop = true;
-      clearTimeout(restartTimer);
-      try { recognition.stop(); } catch(_) {}
-      updateUI();
-    }
-
-    function toggleRec() {
-      if (isRecording) stopRec();
-      else startRec();
-    }
-
-    function saveFile() {
-      const textContent = finalText.trim();
-      if (!textContent) {
-        showToast('❌ Нет текста');
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast.textContent = '❌ Браузер не поддерживает';
+        toast.classList.add('show');
+        record.disabled = true;
         return;
       }
 
-      const now = new Date();
-      const pad = n => String(n).padStart(2, '0');
-      const name = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
-        '_' + pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds()) + '.txt';
+      function showToast(msg) {
+        toast.textContent = msg;
+        toast.classList.add('show');
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => toast.classList.remove('show'), 3000);
+      }
 
-      try {
-        if (navigator.share) {
-          const file = new File([textContent], name, { type: 'text/plain' });
-          navigator.share({ files: [file] }).then(() => {
-            showToast('✅ Файл передан в "Поделиться"');
-          }).catch(err => {
-            if (err.name !== 'AbortError') showToast('❌ ' + err.message);
-          });
+      function updateUI() {
+        // Кнопка записи
+        if (isRecording) {
+          record.textContent = '■';
+          record.className = 'btn-record active';
         } else {
-          const blob = new Blob([textContent], { type: 'text/plain' });
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = name;
-          a.click();
-          showToast('✅ Сохранено: ' + name);
+          record.textContent = '▶';
+          record.className = 'btn-record';
         }
+
+        // Текст
+        const display = finalText + (interimText ? ' ' + interimText : '');
+        if (text.value !== display) {
+          text.value = display;
+          text.scrollTop = text.scrollHeight;
+        }
+
+        // Кнопки Сохранить и Очистить
+        const hasText = finalText.trim().length > 0;
+        if (hasText) {
+          save.disabled = false;
+          save.className = 'btn-save active';
+          clear.disabled = false;
+          clear.className = 'btn-clear';
+        } else {
+          save.disabled = true;
+          save.className = 'btn-save';
+          clear.disabled = true;
+          clear.className = 'btn-clear';
+        }
+      }
+
+      function startRec() {
+        if (isRecording) return;
+        if (!recognition) {
+          recognition = new SpeechRecognition();
+          recognition.lang = 'ru-RU';
+          recognition.continuous = true;
+          recognition.interimResults = true;
+
+          recognition.onresult = function(e) {
+            let newFinal = '';
+            let newInterim = '';
+
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+              const r = e.results[i];
+              const chunk = r[0].transcript;
+              if (r.isFinal) {
+                newFinal += chunk + ' ';
+              } else {
+                newInterim += chunk;
+              }
+            }
+
+            // Android фикс: добавляем только если текст реально новый
+            if (newFinal) {
+              // Проверяем, не заканчивается ли уже finalText на этот текст
+              if (!finalText.endsWith(newFinal)) {
+                finalText += newFinal;
+              }
+              interimText = '';
+            } else if (newInterim) {
+              interimText = newInterim;
+            }
+
+            updateUI();
+          };
+
+          recognition.onerror = function(e) {
+            if (e.error === 'not-allowed') {
+              showToast('❌ Нет доступа к микрофону');
+              stopRec();
+            } else if (e.error === 'no-speech') {
+              // игнорируем
+            } else if (e.error === 'audio-capture') {
+              showToast('❌ Микрофон недоступен');
+              stopRec();
+            }
+          };
+
+          recognition.onend = function() {
+            if (isRecording && !recognition._manualStop) {
+              clearTimeout(restartTimer);
+              restartTimer = setTimeout(() => {
+                if (isRecording) {
+                  try { recognition.start(); } catch(_) {}
+                }
+              }, 300);
+            } else {
+              isRecording = false;
+              recognition._manualStop = false;
+              updateUI();
+            }
+          };
+        }
+
+        isRecording = true;
+        recognition._manualStop = false;
+        updateUI();
+        try { recognition.start(); } catch(_) {}
+      }
+
+      function stopRec() {
+        isRecording = false;
+        if (recognition) {
+          recognition._manualStop = true;
+          clearTimeout(restartTimer);
+          try { recognition.stop(); } catch(_) {}
+        }
+        updateUI();
+      }
+
+      function toggleRec() {
+        if (isRecording) stopRec();
+        else startRec();
+      }
+
+      function saveFile() {
+        const textContent = finalText.trim();
+        if (!textContent) {
+          showToast('❌ Нет текста');
+          return;
+        }
+
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const name = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
+          '_' + pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds()) + '.txt';
+
+        try {
+          if (navigator.share) {
+            const file = new File([textContent], name, { type: 'text/plain' });
+            navigator.share({ files: [file] }).then(() => {
+              showToast('✅ Файл передан в "Поделиться"');
+            }).catch(err => {
+              if (err.name !== 'AbortError') showToast('❌ ' + err.message);
+            });
+          } else {
+            const blob = new Blob([textContent], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('✅ Сохранено: ' + name);
+          }
+        } catch(e) {
+          showToast('❌ Ошибка: ' + e.message);
+        }
+      }
+
+      function clearText() {
+        if (!finalText.trim()) return;
         finalText = '';
         interimText = '';
-        lastFinalText = '';
         updateUI();
-      } catch(e) {
-        showToast('❌ Ошибка: ' + e.message);
+        showToast('🗑 Очищено');
       }
-    }
 
-    record.addEventListener('click', toggleRec);
-    save.addEventListener('click', saveFile);
+      // --- События ---
+      record.addEventListener('click', toggleRec);
+      save.addEventListener('click', saveFile);
+      clear.addEventListener('click', clearText);
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        toggleRec();
-      }
-      if (e.key === 'Escape' && isRecording) {
-        e.preventDefault();
-        stopRec();
-      }
-    });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          toggleRec();
+        }
+        if (e.key === 'Escape' && isRecording) {
+          e.preventDefault();
+          stopRec();
+        }
+      });
 
-    updateUI();
+      updateUI();
+    })();
   </script>
 </body>
 </html>
