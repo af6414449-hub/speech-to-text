@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f5f5f5">
+  <link rel="manifest" href="manifest.webmanifest">
   <title>Голосовой транскрибатор</title>
   
   <style>
@@ -21,6 +23,9 @@
       justify-content: center;
       align-items: center;
       padding: 16px;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
     }
 
     .container {
@@ -30,11 +35,65 @@
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 16px 20px;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      letter-spacing: 0.3px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    #mainBtn {
+      flex: 2;
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    #mainBtn.recording {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    #mainBtn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #saveBtn {
+      flex: 1;
+      background: #e3f2fd;
+      color: #0d47a1;
+    }
+
+    #saveBtn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
     }
 
     #transcript {
       width: 100%;
-      min-height: 300px;
+      min-height: 350px;
       max-height: 500px;
       background: transparent;
       color: #1a1a1a;
@@ -45,6 +104,8 @@
       resize: vertical;
       outline: none;
       font-family: inherit;
+      -webkit-appearance: none;
+      appearance: none;
     }
 
     #transcript::placeholder {
@@ -52,268 +113,417 @@
       font-size: 18px;
     }
 
-    .controls {
-      display: flex;
-      gap: 12px;
-      margin-top: 20px;
-    }
-
-    button {
-      flex: 1;
-      padding: 16px 20px;
-      border: none;
-      border-radius: 12px;
-      font-size: 17px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
-    }
-
-    button:active {
-      transform: scale(0.97);
-    }
-
-    #startBtn {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-
-    #startBtn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    #stopBtn {
-      background: #ffebee;
-      color: #c62828;
-    }
-
-    #stopBtn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
     #status {
-      font-size: 15px;
-      color: #666;
+      font-size: 13px;
+      color: #888;
       margin-top: 14px;
-      min-height: 24px;
-      padding: 8px;
-      background: #f0f0f0;
+      min-height: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+      transition: background 0.3s;
+    }
+
+    .status-dot.recording {
+      background: #c62828;
+      animation: pulse 1s infinite;
+    }
+
+    .status-dot.listening {
+      background: #2e7d32;
+      animation: pulse 0.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #323232;
+      color: #fff;
+      padding: 12px 24px;
       border-radius: 8px;
-      text-align: center;
+      font-size: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 1000;
     }
 
-    #status.active {
-      color: #2e7d32;
-      background: #e8f5e9;
-    }
-
-    #status.error {
-      color: #c62828;
-      background: #ffebee;
-    }
-
-    #debug {
-      font-size: 12px;
-      color: #999;
-      margin-top: 10px;
-      padding: 8px;
-      background: #f9f9f9;
-      border-radius: 6px;
-      min-height: 60px;
-      word-break: break-all;
-      font-family: monospace;
+    .toast.show {
+      opacity: 1;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <textarea id="transcript" placeholder="Нажмите «Старт» и говорите..."></textarea>
-
     <div class="controls">
-      <button id="startBtn">🎤 Старт</button>
-      <button id="stopBtn" disabled>⏹ Стоп</button>
+      <button id="mainBtn">🎤 Старт</button>
+      <button id="saveBtn" disabled>💾 Сохранить</button>
     </div>
 
-    <div id="status">⏸ Готов</div>
-    <div id="debug">📱 Ожидание действий...</div>
+    <textarea id="transcript" placeholder="Нажмите «Старт» и говорите..."></textarea>
+
+    <div id="status">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="status-text" id="statusText">Готов</span>
+    </div>
   </div>
 
+  <div class="toast" id="toast"></div>
+
   <script>
-    // Простая версия для проверки
-    const transcript = document.getElementById('transcript');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const statusEl = document.getElementById('status');
-    const debugEl = document.getElementById('debug');
+    document.addEventListener('DOMContentLoaded', () => {
+      const transcript = document.getElementById('transcript');
+      const mainBtn = document.getElementById('mainBtn');
+      const saveBtn = document.getElementById('saveBtn');
+      const statusText = document.getElementById('statusText');
+      const statusDot = document.getElementById('statusDot');
+      const toast = document.getElementById('toast');
 
-    function setStatus(text, type = '') {
-      statusEl.textContent = text;
-      statusEl.className = type;
-      debugEl.textContent += '\n📌 ' + text;
-      debugEl.scrollTop = debugEl.scrollHeight;
-    }
+      let recognition = null;
+      let isListening = false;
+      let finalTranscript = '';
+      let restartTimeout = null;
+      let isManualStop = false;
+      let toastTimeout = null;
 
-    function addDebug(text) {
-      debugEl.textContent += '\n🔍 ' + text;
-      debugEl.scrollTop = debugEl.scrollHeight;
-      console.log(text);
-    }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        statusText.textContent = '❌ Браузер не поддерживает распознавание речи';
+        mainBtn.disabled = true;
+        return;
+      }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    addDebug('📱 Проверка браузера...');
-    
-    if (!SpeechRecognition) {
-      setStatus('❌ Браузер не поддерживает распознавание', 'error');
-      addDebug('❌ SpeechRecognition НЕ поддерживается');
-      startBtn.disabled = true;
-    } else {
-      addDebug('✅ SpeechRecognition поддерживается');
-      setStatus('✅ Браузер поддерживается, нажмите Старт', 'active');
-    }
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add('show');
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+          toast.classList.remove('show');
+        }, 3000);
+      }
 
-    let recognition = null;
-    let isListening = false;
-    let fullText = '';
+      function setStatus(text) {
+        statusText.textContent = text;
+      }
 
-    function initRecognition() {
-      addDebug('🔄 Инициализация распознавания...');
-      
-      recognition = new SpeechRecognition();
-      recognition.lang = 'ru-RU';
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
+      function setDotState(state) {
+        statusDot.className = 'status-dot';
+        if (state === 'recording') {
+          statusDot.classList.add('recording');
+        } else if (state === 'listening') {
+          statusDot.classList.add('listening');
+        }
+      }
 
-      recognition.onstart = () => {
-        addDebug('✅ СТАРТ: распознавание запущено');
-        isListening = true;
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        setStatus('🎙 Слушаю... говорите!', 'active');
-      };
-
-      recognition.onresult = (event) => {
-        addDebug('📝 Получен результат, фрагментов: ' + event.results.length);
-        
-        let interimText = '';
-        let finalText = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          const chunk = result[0].transcript;
-          addDebug('  📄 "' + chunk + '" (финальный: ' + result.isFinal + ')');
-
-          if (result.isFinal) {
-            finalText += chunk + ' ';
+      function updateButton(isRecording) {
+        if (isRecording) {
+          mainBtn.textContent = '⏹ Стоп';
+          mainBtn.className = 'recording';
+          saveBtn.disabled = true;
+        } else {
+          mainBtn.textContent = '🎤 Старт';
+          mainBtn.className = '';
+          if (finalTranscript.trim()) {
+            saveBtn.disabled = false;
           } else {
-            interimText += chunk;
+            saveBtn.disabled = true;
           }
         }
+      }
 
-        if (finalText) {
-          fullText += finalText;
+      function initRecognition() {
+        if (recognition) {
+          try { recognition.abort(); } catch (e) {}
         }
 
-        let displayText = fullText;
-        if (interimText) {
-          displayText += (displayText ? ' ' : '') + interimText;
-        }
+        recognition = new SpeechRecognition();
+        recognition.lang = 'ru-RU';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
 
-        transcript.value = displayText;
-        transcript.scrollTop = transcript.scrollHeight;
-        addDebug('📝 Текст обновлён: "' + displayText.slice(-50) + '"');
-      };
+        recognition.onstart = () => {
+          isListening = true;
+          isManualStop = false;
+          updateButton(true);
+          setStatus('Слушаю...');
+          setDotState('listening');
+        };
 
-      recognition.onerror = (event) => {
-        addDebug('❌ ОШИБКА: ' + event.error);
-        setStatus('⚠ Ошибка: ' + event.error, 'error');
-        
-        if (event.error === 'not-allowed') {
-          setStatus('❌ Доступ к микрофону запрещён', 'error');
-          stopListening();
-        } else if (event.error === 'no-speech') {
-          setStatus('🔇 Тишина... говорите!', '');
-        }
-      };
+        recognition.onresult = (event) => {
+          let interimText = '';
+          let finalText = '';
 
-      recognition.onend = () => {
-        addDebug('⏹ СТОП: распознавание завершено');
-        
-        if (isListening) {
-          addDebug('🔄 Перезапуск через 500ms...');
-          setTimeout(() => {
-            try {
-              recognition.start();
-              addDebug('✅ Перезапущено');
-            } catch (e) {
-              addDebug('❌ Ошибка перезапуска: ' + e.message);
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i];
+            const chunk = result[0].transcript;
+
+            if (result.isFinal) {
+              finalText += chunk + ' ';
+            } else {
+              interimText += chunk;
             }
-          }, 500);
-        } else {
-          startBtn.disabled = false;
-          stopBtn.disabled = true;
-          setStatus('⏸ Остановлено', '');
+          }
+
+          if (finalText) {
+            finalTranscript += finalText;
+          }
+
+          let displayText = finalTranscript;
+          if (interimText) {
+            displayText += (displayText ? ' ' : '') + interimText;
+          }
+
+          transcript.value = displayText;
+          transcript.scrollTop = transcript.scrollHeight;
+
+          if (interimText) {
+            setDotState('listening');
+          }
+        };
+
+        recognition.onerror = (event) => {
+          if (event.error === 'not-allowed') {
+            setStatus('❌ Доступ к микрофону запрещён');
+            setDotState('');
+            stopListening();
+          } else if (event.error === 'no-speech') {
+            setStatus('Тишина...');
+            setDotState('recording');
+          } else if (event.error === 'audio-capture') {
+            setStatus('❌ Микрофон недоступен');
+            setDotState('');
+            stopListening();
+          } else if (event.error === 'network') {
+            setStatus('🌐 Проблема с сетью');
+            if (isListening && !isManualStop) {
+              setTimeout(() => {
+                try { recognition.start(); } catch (e) {}
+              }, 1000);
+            }
+          } else {
+            setStatus(`⚠ ${event.error}`);
+            if (isListening && !isManualStop && event.error !== 'not-allowed') {
+              setTimeout(() => {
+                try { 
+                  if (!isManualStop) recognition.start(); 
+                } catch (e) {}
+              }, 500);
+            }
+          }
+        };
+
+        recognition.onend = () => {
+          if (isListening && !isManualStop) {
+            setStatus('Перезапуск...');
+            setDotState('recording');
+            
+            if (restartTimeout) clearTimeout(restartTimeout);
+            
+            restartTimeout = setTimeout(() => {
+              if (isListening && !isManualStop) {
+                try {
+                  recognition.start();
+                } catch (e) {
+                  if (isListening && !isManualStop) {
+                    restartTimeout = setTimeout(() => {
+                      try { recognition.start(); } catch (err) {}
+                    }, 500);
+                  }
+                }
+              }
+            }, 300);
+          } else {
+            isListening = false;
+            updateButton(false);
+            setStatus('Остановлено');
+            setDotState('');
+          }
+        };
+
+        recognition.onsoundstart = () => {
+          setStatus('Слушаю...');
+          setDotState('listening');
+        };
+
+        recognition.onsoundend = () => {
+          if (isListening && !isManualStop) {
+            setStatus('Пауза');
+            setDotState('recording');
+          }
+        };
+
+        recognition.onspeechstart = () => {
+          setDotState('listening');
+        };
+      }
+
+      function startListening() {
+        if (isListening) return;
+
+        if (transcript.value && !finalTranscript) {
+          finalTranscript = transcript.value;
         }
-      };
 
-      recognition.onsoundstart = () => {
-        addDebug('🔊 ЗВУК обнаружен');
-        setStatus('🎙 Слышу звук...', 'active');
-      };
+        if (!recognition) {
+          initRecognition();
+        }
 
-      recognition.onspeechstart = () => {
-        addDebug('🗣 РЕЧЬ обнаружена!');
-        setStatus('🗣 Говорите!', 'active');
-      };
+        isManualStop = false;
+        isListening = true;
+        setStatus('Запуск...');
+        setDotState('recording');
 
-      addDebug('✅ Инициализация завершена');
-    }
-
-    function startListening() {
-      addDebug('▶ Нажата кнопка СТАРТ');
-      
-      if (!recognition) {
-        initRecognition();
-      }
-
-      isListening = true;
-      setStatus('🔄 Запуск...', '');
-      
-      try {
-        recognition.start();
-        addDebug('✅ Команда start() отправлена');
-      } catch (e) {
-        addDebug('❌ Ошибка start(): ' + e.message);
-        setStatus('❌ Ошибка: ' + e.message, 'error');
-        isListening = false;
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-      }
-    }
-
-    function stopListening() {
-      addDebug('⏹ Нажата кнопка СТОП');
-      isListening = false;
-      
-      if (recognition) {
         try {
-          recognition.stop();
-          addDebug('✅ Команда stop() отправлена');
+          recognition.start();
         } catch (e) {
-          addDebug('❌ Ошибка stop(): ' + e.message);
+          if (e.message && e.message.includes('already started')) {
+            isListening = true;
+            updateButton(true);
+            setStatus('Слушаю...');
+            setDotState('listening');
+          } else {
+            setStatus('❌ Ошибка запуска');
+            isListening = false;
+            updateButton(false);
+            setDotState('');
+          }
         }
       }
-    }
 
-    startBtn.addEventListener('click', startListening);
-    stopBtn.addEventListener('click', stopListening);
+      function stopListening(manual = true) {
+        isManualStop = manual;
+        isListening = false;
+        
+        if (restartTimeout) {
+          clearTimeout(restartTimeout);
+          restartTimeout = null;
+        }
 
-    // Инициализируем при загрузке
-    initRecognition();
+        if (recognition) {
+          try {
+            recognition.stop();
+          } catch (e) {}
+        }
+
+        updateButton(false);
+        setStatus('Остановлено');
+        setDotState('');
+      }
+
+      function toggleListening() {
+        if (isListening) {
+          stopListening(true);
+        } else {
+          startListening();
+        }
+      }
+
+      function saveToFile() {
+        const text = finalTranscript.trim();
+        if (!text) {
+          showToast('❌ Нет текста для сохранения');
+          return;
+        }
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        
+        const filename = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}.txt`;
+        
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        showToast(`✅ Сохранено: ${filename}`);
+      }
+
+      mainBtn.addEventListener('click', toggleListening);
+      saveBtn.addEventListener('click', saveToFile);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'Enter') {
+          e.preventDefault();
+          toggleListening();
+        }
+        if (e.key === 'Escape' && isListening) {
+          e.preventDefault();
+          stopListening(true);
+        }
+        if (e.ctrlKey && e.key === 's') {
+          e.preventDefault();
+          saveToFile();
+        }
+      });
+
+      transcript.addEventListener('input', () => {
+        if (transcript.value && !transcript.value.startsWith(finalTranscript) && !finalTranscript.startsWith(transcript.value)) {
+          finalTranscript = transcript.value;
+        }
+        if (!isListening) {
+          if (finalTranscript.trim()) {
+            saveBtn.disabled = false;
+          } else {
+            saveBtn.disabled = true;
+          }
+        }
+        try {
+          chrome.storage.local.set({ transcript: transcript.value });
+        } catch (e) {}
+      });
+
+      window.addEventListener('beforeunload', () => {
+        if (isListening) {
+          stopListening(true);
+        }
+        try {
+          chrome.storage.local.set({ transcript: transcript.value });
+        } catch (e) {}
+      });
+
+      try {
+        chrome.storage.local.get(['transcript'], (result) => {
+          if (result.transcript) {
+            transcript.value = result.transcript;
+            finalTranscript = result.transcript;
+            if (finalTranscript.trim()) {
+              saveBtn.disabled = false;
+            }
+          }
+        });
+      } catch (e) {}
+
+      initRecognition();
+    });
   </script>
 </body>
 </html>
