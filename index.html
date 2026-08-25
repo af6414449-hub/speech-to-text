@@ -227,6 +227,24 @@
         return normalized;
       }
 
+      function collapseRepeatedTailBlocks(value) {
+        const normalized = normalizeText(value);
+        if (!normalized) return '';
+
+        const words = normalized.split(' ');
+        const maxBlock = Math.min(24, Math.floor(words.length / 2));
+
+        for (let size = maxBlock; size >= 2; size -= 1) {
+          const left = words.slice(words.length - size * 2, words.length - size).join(' ');
+          const right = words.slice(words.length - size).join(' ');
+          if (left && left === right) {
+            return words.slice(0, words.length - size).join(' ');
+          }
+        }
+
+        return normalized;
+      }
+
       function appendUniqueTranscript(base, chunk) {
         const normalizedBase = normalizeText(base);
         const normalizedChunk = collapseImmediateDuplication(chunk);
@@ -361,7 +379,7 @@
             }
 
             if (newFinal) {
-              finalText = appendUniqueTranscript(finalText, newFinal);
+              finalText = collapseRepeatedTailBlocks(appendUniqueTranscript(finalText, newFinal));
               interimText = '';
             } else {
               interimText = newInterim;
@@ -413,7 +431,7 @@
           clearTimeout(restartTimer);
           try { recognition.stop(); } catch(_) {}
         }
-        finalText = normalizeText(text.value);
+        finalText = collapseRepeatedTailBlocks(normalizeText(text.value));
         interimText = '';
         updateUI();
         persistText();
