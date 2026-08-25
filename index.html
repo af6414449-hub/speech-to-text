@@ -201,6 +201,7 @@
       let permissionPrimed = false;
       let sessionBaseText = '';
       let androidSessionText = '';
+      let androidCommittedFingerprints = [];
       const isAndroid = /Android/i.test(navigator.userAgent);
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -266,6 +267,24 @@
         }
 
         return normalizeText(normalizedBase + ' ' + normalizedChunk);
+      }
+
+      function getChunkFingerprint(chunk) {
+        return collapseRepeatedTailBlocks(collapseImmediateDuplication(chunk));
+      }
+
+      function commitAndroidChunk(chunk) {
+        const normalizedChunk = getChunkFingerprint(chunk);
+        if (!normalizedChunk) return false;
+        if (androidCommittedFingerprints.includes(normalizedChunk)) return false;
+        if (normalizeText(finalText).endsWith(normalizedChunk)) return false;
+
+        finalText = collapseRepeatedTailBlocks(appendUniqueTranscript(finalText, normalizedChunk));
+        androidCommittedFingerprints.push(normalizedChunk);
+        if (androidCommittedFingerprints.length > 20) {
+          androidCommittedFingerprints = androidCommittedFingerprints.slice(-20);
+        }
+        return true;
       }
 
       function safeInterim(base, chunk) {
@@ -379,7 +398,11 @@
               const chunk = normalizeText(r[0].transcript);
               if (!chunk) continue;
               if (r.isFinal) {
-                sessionFinal = appendUniqueTranscript(sessionFinal, chunk);
+                if (isAndroid) {
+                  commitAndroidChunk(chunk);
+                } else {
+                  sessionFinal = appendUniqueTranscript(sessionFinal, chunk);
+                }
               } else if (!isAndroid) {
                 sessionInterim = appendUniqueTranscript(sessionInterim, chunk);
               }
@@ -388,7 +411,7 @@
             sessionFinal = collapseRepeatedTailBlocks(sessionFinal);
 
             if (isAndroid) {
-              androidSessionText = sessionFinal;
+              androidSessionText = '';
               interimText = '';
             } else {
               finalText = collapseRepeatedTailBlocks(appendUniqueTranscript(sessionBaseText, sessionFinal));
@@ -412,21 +435,13 @@
           };
 
           recognition.onend = function() {
-            if (isAndroid && androidSessionText) {
-              finalText = collapseRepeatedTailBlocks(appendUniqueTranscript(sessionBaseText, androidSessionText));
-              sessionBaseText = finalText;
-              androidSessionText = '';
-              updateUI();
-              persistText();
-            }
-
             if (isRecording && !recognition._manualStop) {
               clearTimeout(restartTimer);
               restartTimer = setTimeout(() => {
                 if (isRecording) {
                   try { recognition.start(); } catch(_) {}
                 }
-              }, isAndroid ? 120 : 300);
+              }, isAndroid ? 80 : 300);
             } else {
               isRecording = false;
               recognition._manualStop = false;
@@ -440,6 +455,7 @@
         isRecording = true;
         sessionBaseText = normalizeText(finalText || text.value);
         androidSessionText = '';
+        androidCommittedFingerprints = [];
         recognition._manualStop = false;
         updateUI();
         try { recognition.start(); } catch(_) {}
