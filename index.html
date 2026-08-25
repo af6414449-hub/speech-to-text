@@ -2,75 +2,125 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#171311">
+  <link rel="manifest" href="manifest.webmanifest">
   <title>Диктофон</title>
   <style>
+    :root {
+      --bg: #171311;
+      --bg-2: #221b17;
+      --panel: rgba(38, 29, 25, 0.96);
+      --line: rgba(255, 236, 223, 0.08);
+      --text: #f6eee7;
+      --muted: #a9978b;
+      --clear-1: #5a2f2c;
+      --clear-2: #7c433d;
+      --save-1: #6b4a2f;
+      --save-2: #9a6b44;
+      --record-1: #c97447;
+      --record-2: #ebb07a;
+      --record-active-1: #9d413b;
+      --record-active-2: #c86156;
+      --shadow-clear: 0 10px 28px rgba(124, 67, 61, 0.24);
+      --shadow-save: 0 10px 28px rgba(154, 107, 68, 0.24);
+      --shadow-record: 0 16px 42px rgba(201, 116, 71, 0.28);
+      --shadow-record-active: 0 16px 42px rgba(157, 65, 59, 0.28);
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; }
     body {
-      background: #f5f5f5;
+      background:
+        radial-gradient(circle at top, rgba(235, 176, 122, 0.08), transparent 26%),
+        radial-gradient(circle at bottom, rgba(201, 116, 71, 0.10), transparent 34%),
+        linear-gradient(180deg, var(--bg), var(--bg-2));
       display: flex;
       justify-content: center;
       align-items: center;
       padding: 16px;
       font-family: system-ui, -apple-system, sans-serif;
+      color: var(--text);
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 32px 32px;
+      opacity: 0.16;
+      mask-image: radial-gradient(circle at center, black 34%, transparent 88%);
     }
     .app {
       width: 100%;
       max-width: 600px;
       height: 100%;
       max-height: 700px;
-      background: white;
+      background: linear-gradient(180deg, rgba(40,31,27,0.98), rgba(30,23,20,0.98));
+      border: 1px solid var(--line);
       border-radius: 24px;
       padding: 20px;
       display: flex;
       flex-direction: column;
       position: relative;
+      box-shadow: 0 24px 70px rgba(0,0,0,0.4);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
     .text {
       flex: 1;
-      border: none;
+      border: 1px solid rgba(255, 236, 223, 0.06);
+      border-radius: 20px;
       resize: none;
       font-size: 20px;
       line-height: 1.8;
       outline: none;
       font-family: inherit;
-      padding: 10px 0;
+      padding: 16px;
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(31,24,21,0.98), rgba(25,19,17,0.98));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+      caret-color: var(--record-2);
     }
-    .text::placeholder { color: #bbb; }
+    .text::placeholder { color: var(--muted); }
     .buttons {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 16px;
       padding-top: 16px;
-      border-top: 1px solid #eee;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      margin-top: 16px;
     }
     .btn-clear {
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      border: none;
+      border: 1px solid rgba(255,255,255,0.06);
       font-size: 24px;
       cursor: pointer;
-      background: #ffebee;
-      color: #c62828;
+      background: linear-gradient(135deg, var(--clear-1), var(--clear-2));
+      color: #fff1ec;
       transition: 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: var(--shadow-clear);
     }
     .btn-clear:active { transform: scale(0.9); }
-    .btn-clear:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-clear:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
     .btn-save {
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      border: none;
+      border: 1px solid rgba(255,255,255,0.06);
       font-size: 24px;
       cursor: pointer;
-      background: #e0e0e0;
-      color: #999;
+      background: linear-gradient(135deg, rgba(74,57,47,0.9), rgba(92,71,60,0.9));
+      color: #9f8d80;
       transition: 0.2s;
       display: flex;
       align-items: center;
@@ -78,44 +128,48 @@
     }
     .btn-save:active { transform: scale(0.9); }
     .btn-save.active {
-      background: #2196F3;
+      background: linear-gradient(135deg, var(--save-1), var(--save-2));
       color: white;
+      box-shadow: var(--shadow-save);
     }
     .btn-save:disabled { opacity: 0.3; cursor: not-allowed; }
     .btn-record {
       width: 80px;
       height: 80px;
       border-radius: 50%;
-      border: none;
+      border: 1px solid rgba(255,255,255,0.07);
       font-size: 36px;
       cursor: pointer;
-      background: #4CAF50;
+      background: linear-gradient(135deg, var(--record-1), var(--record-2));
       color: white;
       transition: 0.2s;
-      box-shadow: 0 4px 12px rgba(76,175,80,0.3);
+      box-shadow: var(--shadow-record);
       display: flex;
       align-items: center;
       justify-content: center;
     }
     .btn-record:active { transform: scale(0.9); }
     .btn-record.active {
-      background: #f44336;
-      box-shadow: 0 4px 12px rgba(244,67,54,0.3);
+      background: linear-gradient(135deg, var(--record-active-1), var(--record-active-2));
+      box-shadow: var(--shadow-record-active);
     }
     .toast {
       position: fixed;
-      bottom: 30px;
+      bottom: max(18px, env(safe-area-inset-bottom));
       left: 50%;
       transform: translateX(-50%);
-      background: #333;
+      background: rgba(37, 29, 25, 0.98);
       color: white;
       padding: 12px 24px;
-      border-radius: 8px;
+      border-radius: 12px;
       font-size: 14px;
       opacity: 0;
       transition: 0.3s;
       pointer-events: none;
       white-space: nowrap;
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+      max-width: calc(100vw - 20px);
     }
     .toast.show { opacity: 1; }
   </style>
@@ -144,7 +198,6 @@
       let interimText = '';
       let recognition = null;
       let restartTimer = null;
-      let lastText = '';
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -152,6 +205,64 @@
         toast.classList.add('show');
         record.disabled = true;
         return;
+      }
+
+      function normalizeText(value) {
+        return (value || '').replace(/\s+/g, ' ').trim();
+      }
+
+      function appendUniqueTranscript(base, chunk) {
+        const normalizedBase = normalizeText(base);
+        const normalizedChunk = normalizeText(chunk);
+
+        if (!normalizedChunk) return normalizedBase;
+        if (!normalizedBase) return normalizedChunk;
+        if (normalizedBase === normalizedChunk) return normalizedBase;
+        if (normalizedBase.endsWith(normalizedChunk)) return normalizedBase;
+        if (normalizedChunk.includes(normalizedBase)) return normalizedChunk;
+
+        const maxOverlap = Math.min(normalizedBase.length, normalizedChunk.length);
+        for (let size = maxOverlap; size > 0; size -= 1) {
+          if (normalizedBase.slice(-size) === normalizedChunk.slice(0, size)) {
+            return normalizeText(normalizedBase + ' ' + normalizedChunk.slice(size));
+          }
+        }
+
+        return normalizeText(normalizedBase + ' ' + normalizedChunk);
+      }
+
+      function safeInterim(base, chunk) {
+        const normalizedBase = normalizeText(base);
+        const normalizedChunk = normalizeText(chunk);
+
+        if (!normalizedChunk) return '';
+        if (!normalizedBase) return normalizedChunk;
+        if (normalizedBase.endsWith(normalizedChunk)) return '';
+
+        const words = normalizedBase.split(' ');
+        for (let count = Math.min(words.length, 8); count > 0; count -= 1) {
+          const tail = words.slice(-count).join(' ');
+          if (normalizedChunk.startsWith(tail)) {
+            return normalizedChunk.slice(tail.length).trim();
+          }
+        }
+
+        return normalizedChunk;
+      }
+
+      function renderText() {
+        const display = [normalizeText(finalText), safeInterim(finalText, interimText)].filter(Boolean).join(' ').trim();
+        if (text.value !== display) {
+          text.value = display;
+          text.scrollTop = text.scrollHeight;
+        }
+      }
+
+      function persistText() {
+        try {
+          localStorage.setItem('transcript', text.value);
+          localStorage.setItem('finalTranscript', normalizeText(finalText));
+        } catch (e) {}
       }
 
       function showToast(msg) {
@@ -162,7 +273,6 @@
       }
 
       function updateUI() {
-        // Кнопка записи
         if (isRecording) {
           record.textContent = '■';
           record.className = 'btn-record active';
@@ -171,15 +281,9 @@
           record.className = 'btn-record';
         }
 
-        // Текст
-        const display = finalText + (interimText ? ' ' + interimText : '');
-        if (text.value !== display) {
-          text.value = display;
-          text.scrollTop = text.scrollHeight;
-        }
+        renderText();
 
-        // Кнопки Сохранить и Очистить
-        const hasText = finalText.trim().length > 0;
+        const hasText = normalizeText(finalText).length > 0;
         if (hasText) {
           save.disabled = false;
           save.className = 'btn-save active';
@@ -200,6 +304,7 @@
           recognition.lang = 'ru-RU';
           recognition.continuous = true;
           recognition.interimResults = true;
+          recognition.maxAlternatives = 1;
 
           recognition.onresult = function(e) {
             let newFinal = '';
@@ -207,26 +312,24 @@
 
             for (let i = e.resultIndex; i < e.results.length; i++) {
               const r = e.results[i];
-              const chunk = r[0].transcript;
+              const chunk = normalizeText(r[0].transcript);
+              if (!chunk) continue;
               if (r.isFinal) {
-                newFinal += chunk + ' ';
+                newFinal = appendUniqueTranscript(newFinal, chunk);
               } else {
-                newInterim += chunk;
+                newInterim = appendUniqueTranscript(newInterim, chunk);
               }
             }
 
-            // Android фикс: добавляем только если текст реально новый
             if (newFinal) {
-              // Проверяем, не заканчивается ли уже finalText на этот текст
-              if (!finalText.endsWith(newFinal)) {
-                finalText += newFinal;
-              }
+              finalText = appendUniqueTranscript(finalText, newFinal);
               interimText = '';
-            } else if (newInterim) {
+            } else {
               interimText = newInterim;
             }
 
             updateUI();
+            persistText();
           };
 
           recognition.onerror = function(e) {
@@ -253,6 +356,7 @@
               isRecording = false;
               recognition._manualStop = false;
               updateUI();
+              persistText();
             }
           };
         }
@@ -270,7 +374,10 @@
           clearTimeout(restartTimer);
           try { recognition.stop(); } catch(_) {}
         }
+        finalText = normalizeText(text.value);
+        interimText = '';
         updateUI();
+        persistText();
       }
 
       function toggleRec() {
@@ -278,8 +385,19 @@
         else startRec();
       }
 
-      function saveFile() {
-        const textContent = finalText.trim();
+      function triggerDownload(file, name) {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      }
+
+      async function saveFile() {
+        const textContent = normalizeText(finalText || text.value);
         if (!textContent) {
           showToast('❌ Нет текста');
           return;
@@ -291,37 +409,35 @@
           '_' + pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds()) + '.txt';
 
         try {
-          if (navigator.share) {
-            const file = new File([textContent], name, { type: 'text/plain' });
-            navigator.share({ files: [file] }).then(() => {
-              showToast('✅ Файл передан в "Поделиться"');
-            }).catch(err => {
-              if (err.name !== 'AbortError') showToast('❌ ' + err.message);
-            });
+          const file = new File([textContent], name, { type: 'text/plain;charset=utf-8' });
+          if (navigator.canShare && navigator.canShare({ files: [file] }) && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            await navigator.share({ files: [file], title: name });
+            showToast('✅ TXT: ' + name);
           } else {
-            const blob = new Blob([textContent], { type: 'text/plain' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = name;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            triggerDownload(file, name);
             showToast('✅ Сохранено: ' + name);
           }
         } catch(e) {
-          showToast('❌ Ошибка: ' + e.message);
+          if (e && e.name === 'AbortError') return;
+          try {
+            const file = new File([textContent], name, { type: 'text/plain;charset=utf-8' });
+            triggerDownload(file, name);
+            showToast('✅ Сохранено: ' + name);
+          } catch(err) {
+            showToast('❌ Ошибка: ' + err.message);
+          }
         }
       }
 
       function clearText() {
-        if (!finalText.trim()) return;
+        if (!normalizeText(finalText)) return;
         finalText = '';
         interimText = '';
         updateUI();
+        persistText();
         showToast('🗑 Очищено');
       }
 
-      // --- События ---
       record.addEventListener('click', toggleRec);
       save.addEventListener('click', saveFile);
       clear.addEventListener('click', clearText);
@@ -336,6 +452,12 @@
           stopRec();
         }
       });
+
+      try {
+        const savedFinal = localStorage.getItem('finalTranscript');
+        const savedText = localStorage.getItem('transcript');
+        finalText = normalizeText(savedFinal || savedText || '');
+      } catch (e) {}
 
       updateUI();
     })();

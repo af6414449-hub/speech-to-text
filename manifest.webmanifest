@@ -4,8 +4,8 @@
   "description": "Превращает голос в текст",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f5f5f5",
-  "theme_color": "#f5f5f5",
+  "background_color": "#171311",
+  "theme_color": "#171311",
   "orientation": "portrait",
   "icons": [
     {
