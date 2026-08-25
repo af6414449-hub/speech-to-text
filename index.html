@@ -118,6 +118,7 @@
     let interimText = '';
     let recognition = null;
     let restartTimer = null;
+    let lastFinalText = ''; // для защиты от дублей на Android
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -150,7 +151,10 @@
           save.className = 'save-btn';
         }
       }
-      text.value = finalText + (interimText ? ' ' + interimText : '');
+      const display = finalText + (interimText ? ' ' + interimText : '');
+      if (text.value !== display) {
+        text.value = display;
+      }
       text.scrollTop = text.scrollHeight;
     }
 
@@ -163,19 +167,29 @@
         recognition.interimResults = true;
 
         recognition.onresult = function(e) {
-          let newFinal = '';
-          let newInterim = '';
+          let currentText = '';
+          let hasFinal = false;
+          
           for (let i = e.resultIndex; i < e.results.length; i++) {
             const r = e.results[i];
-            if (r.isFinal) newFinal += r[0].transcript + ' ';
-            else newInterim += r[0].transcript;
+            currentText += r[0].transcript;
+            if (r.isFinal) hasFinal = true;
           }
-          if (newFinal) {
-            finalText += newFinal;
+          
+          // Android фикс: если текст не изменился — игнорируем
+          if (currentText === lastFinalText && hasFinal) return;
+          
+          if (hasFinal) {
+            // Проверяем, не добавили ли мы уже этот текст
+            if (!finalText.endsWith(currentText + ' ')) {
+              finalText += currentText + ' ';
+            }
             interimText = '';
+            lastFinalText = currentText;
           } else {
-            interimText = newInterim;
+            interimText = currentText;
           }
+          
           updateUI();
         };
 
@@ -209,6 +223,7 @@
 
       isRecording = true;
       recognition._manualStop = false;
+      lastFinalText = '';
       updateUI();
       try { recognition.start(); } catch(_) {}
     }
@@ -227,8 +242,8 @@
     }
 
     function saveFile() {
-      const text = finalText.trim();
-      if (!text) {
+      const textContent = finalText.trim();
+      if (!textContent) {
         showToast('❌ Нет текста');
         return;
       }
@@ -240,14 +255,14 @@
 
       try {
         if (navigator.share) {
-          const file = new File([text], name, { type: 'text/plain' });
+          const file = new File([textContent], name, { type: 'text/plain' });
           navigator.share({ files: [file] }).then(() => {
             showToast('✅ Файл передан в "Поделиться"');
           }).catch(err => {
             if (err.name !== 'AbortError') showToast('❌ ' + err.message);
           });
         } else {
-          const blob = new Blob([text], { type: 'text/plain' });
+          const blob = new Blob([textContent], { type: 'text/plain' });
           const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
           a.download = name;
@@ -256,6 +271,7 @@
         }
         finalText = '';
         interimText = '';
+        lastFinalText = '';
         updateUI();
       } catch(e) {
         showToast('❌ Ошибка: ' + e.message);
