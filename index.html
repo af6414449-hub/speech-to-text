@@ -30,6 +30,7 @@
     .blocks {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 4px 0 12px 0;
       display: flex;
       flex-direction: column;
@@ -43,7 +44,9 @@
       transition: 0.2s;
       border-left: 4px solid #4CAF50;
       position: relative;
-      touch-action: none;
+      touch-action: pan-y;
+      max-width: 100%;
+      overflow: hidden;
     }
     .block:active { background: #e9ecef; }
     .block.collapsed .block-text { 
@@ -240,6 +243,7 @@
       let restartTimer = null;
       let liveText = '';
       let liveBlockIndex = -1;
+      let lastFullText = ''; // для отслеживания изменений на Android
 
       // --- Swipe state ---
       let swipeState = {
@@ -360,7 +364,6 @@
         const deltaX = touch.clientX - swipeState.startX;
         const deltaY = touch.clientY - swipeState.startY;
 
-        // Если движение больше по вертикали — не свайп
         if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) {
           swipeState.isSwiping = false;
           return;
@@ -391,7 +394,6 @@
         el.classList.remove('swiping-left', 'swiping-right');
 
         if (!swipeState.isSwiping) {
-          // Клик — обрабатывается отдельно через click
           swipeState.isSwiping = false;
           swipeState.currentElement = null;
           return;
@@ -402,15 +404,34 @@
         const threshold = 50;
 
         if (deltaX < -threshold) {
-          // Свайп влево → исправить
           fixBlock(index);
         } else if (deltaX > threshold) {
-          // Свайп вправо → восстановить
           restoreBlock(index);
         }
 
         swipeState.isSwiping = false;
         swipeState.currentElement = null;
+      }
+
+      // --- Пост-обработка текста ---
+      function postProcessText(text) {
+        if (!text || !text.trim()) return text;
+        
+        let result = text.trim();
+        
+        // 1. Исправляем "я" → "Я" в начале предложений
+        // Разбиваем на предложения по . ! ? и исправляем
+        result = result.replace(/(^|\.\s+|\!\s+|\?\s+)(я)\b/gi, (match, prefix, word) => {
+          return prefix + 'Я';
+        });
+        
+        // 2. Добавляем точку в конце, если её нет
+        const lastChar = result[result.length - 1];
+        if (lastChar && !['.', '!', '?'].includes(lastChar)) {
+          result += '.';
+        }
+        
+        return result;
       }
 
       // --- Исправление блока через LanguageTool ---
@@ -422,7 +443,6 @@
           return;
         }
 
-        // Сохраняем оригинал
         if (!block.originalText) {
           block.originalText = block.text;
         }
@@ -443,10 +463,8 @@
 
           const data = await response.json();
           
+          let fixedText = text;
           if (data.matches && data.matches.length > 0) {
-            // Применяем исправления
-            let fixedText = text;
-            // Сортируем исправления по позиции (с конца, чтобы не сбивать индексы)
             const matches = data.matches.sort((a, b) => b.offset - a.offset);
             
             for (const match of matches) {
@@ -457,16 +475,17 @@
                 fixedText = fixedText.substring(0, start) + replacement + fixedText.substring(end);
               }
             }
+          }
 
-            if (fixedText !== text) {
-              block.text = fixedText;
-              block.fixed = true;
-              renderBlocks();
-              saveToStorage();
-              showToast('✅ Блок исправлен');
-            } else {
-              showToast('ℹ️ Исправления не найдены');
-            }
+          // Пост-обработка
+          fixedText = postProcessText(fixedText);
+
+          if (fixedText !== text) {
+            block.text = fixedText;
+            block.fixed = true;
+            renderBlocks();
+            saveToStorage();
+            showToast('✅ Блок исправлен');
           } else {
             showToast('ℹ️ Исправления не найдены');
           }
@@ -476,7 +495,6 @@
         }
       }
 
-      // --- Восстановление оригинального текста ---
       function restoreBlock(index) {
         const block = blocksData[index];
         if (!block || block.live) return;
@@ -537,9 +555,31 @@
       }
 
       function updateLiveBlock(text) {
-        liveText = text;
+        if (!text || !text.trim()) {
+          liveText = '';
+          if (liveBlockIndex >= 0 && blocksData[liveBlockIndex]) {
+            blocksData[liveBlockIndex].text = ' ';
+            renderBlocks();
+          }
+          return;
+        }
+
+        // Фикс для Android: проверяем, не является ли новый текст расширением старого
+        if (lastFullText && text.startsWith(lastFullText) && text.length > lastFullText.length) {
+          // Это новое продолжение — показываем весь текст
+          liveText = text;
+        } else if (lastFullText && text.length < lastFullText.length) {
+          // Это может быть промежуточный результат — оставляем старый
+          return;
+        } else {
+          // Новый текст
+          liveText = text;
+        }
+        
+        lastFullText = text;
+
         if (liveBlockIndex >= 0 && blocksData[liveBlockIndex]) {
-          blocksData[liveBlockIndex].text = text || ' ';
+          blocksData[liveBlockIndex].text = liveText || ' ';
           blocksData[liveBlockIndex].collapsed = false;
           renderBlocks();
         }
@@ -592,8 +632,11 @@
               }
               
               if (liveText.trim()) {
-                addBlock(liveText, false);
+                // Пост-обработка при сохранении
+                const finalText = postProcessText(liveText);
+                addBlock(finalText, false);
                 liveText = '';
+                lastFullText = '';
               }
               
               renderBlocks();
@@ -606,6 +649,7 @@
         isRecording = true;
         recognition._manualStop = false;
         liveText = '';
+        lastFullText = '';
         recordBtn.textContent = '■';
         recordBtn.className = 'btn-record active';
 
@@ -699,6 +743,7 @@
           if (blocksData.length > 0 && blocksData[0].live) {
             blocksData[0].text = ' ';
             liveText = '';
+            lastFullText = '';
           }
           renderBlocks();
           localStorage.removeItem('blocks');
