@@ -244,7 +244,6 @@
       
       let accumulatedText = '';
       let liveBlockIndex = -1;
-      let lastFinalText = '';
 
       let swipeState = {
         startX: 0,
@@ -561,31 +560,21 @@
             }
             if (!text.trim()) return;
 
-            // Защита от дублей
-            if (text === lastFinalText) return;
+            // Берём последние 20 символов накопленного текста
+            const tail = accumulatedText.slice(-20);
             
-            // Если текст уже есть внутри накопленного — игнорируем
-            if (accumulatedText.includes(text.trim()) && text.length < accumulatedText.length) {
+            // Если новый текст уже содержится в хвосте — игнорируем (дубль)
+            if (tail.includes(text.trim()) && text.length < 30) {
               return;
             }
 
-            // Если новый текст длиннее — обновляем (продолжение)
-            if (text.length > accumulatedText.length) {
-              accumulatedText = text;
-            } 
-            // Если новый текст короче — добавляем как новый фрагмент (после паузы)
-            else if (text.length < accumulatedText.length) {
-              // Проверяем, не является ли этот текст уже частью накопленного
-              if (!accumulatedText.includes(text.trim())) {
-                accumulatedText += ' ' + text;
-              }
-            }
-            // Если длина такая же — проверяем, не другой ли это текст
-            else if (text !== accumulatedText && !accumulatedText.includes(text.trim())) {
+            // Иначе добавляем через пробел
+            if (accumulatedText) {
               accumulatedText += ' ' + text;
+            } else {
+              accumulatedText = text;
             }
 
-            lastFinalText = text;
             updateLiveBlock();
           };
 
@@ -620,7 +609,6 @@
                 const finalText = postProcessText(accumulatedText);
                 addBlock(finalText, false);
                 accumulatedText = '';
-                lastFinalText = '';
               }
               
               renderBlocks();
@@ -633,7 +621,6 @@
         isRecording = true;
         recognition._manualStop = false;
         accumulatedText = '';
-        lastFinalText = '';
         recordBtn.textContent = '■';
         recordBtn.className = 'btn-record active';
 
@@ -727,7 +714,6 @@
           if (blocksData.length > 0 && blocksData[0].live) {
             blocksData[0].text = ' ';
             accumulatedText = '';
-            lastFinalText = '';
           }
           renderBlocks();
           localStorage.removeItem('blocks');
