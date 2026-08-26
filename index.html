@@ -220,85 +220,14 @@
       let swipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
       let mouseSwipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
 
-      // ========== ШУМОПОДАВИТЕЛЬ ==========
-      let audioContext = null;
-      let denoiser = null;
-      let mediaStream = null;
-      let audioWorkletNode = null;
-
-      async function initDenoiser() {
-        try {
-          // Загружаем GTCRN ворклет
-          await loadGTCRN();
-          return true;
-        } catch (e) {
-          console.warn('Шумоподавитель не загружен:', e);
-          return false;
-        }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast.textContent = '❌ Браузер не поддерживает';
+        toast.classList.add('show');
+        recordBtn.disabled = true;
+        return;
       }
 
-      async function loadGTCRN() {
-        return new Promise((resolve, reject) => {
-          // Проверяем, загружен ли уже скрипт
-          if (document.querySelector('script[src*="gtcrn.js"]')) {
-            resolve();
-            return;
-          }
-
-          const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/gh/voice-engine/gtcrn-js/dist/gtcrn.js';
-          script.onload = () => {
-            console.log('✅ GTCRN загружен');
-            resolve();
-          };
-          script.onerror = () => {
-            reject(new Error('Не удалось загрузить GTCRN'));
-          };
-          document.head.appendChild(script);
-        });
-      }
-
-      function createAudioPipeline(stream) {
-        if (!window.GTCRN) {
-          showToast('⚠️ Шумоподавитель недоступен');
-          return false;
-        }
-
-        try {
-          audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          const source = audioContext.createMediaStreamSource(stream);
-
-          // Создаём узел шумоподавления (GTCRN)
-          denoiser = new GTCRN({
-            sampleRate: audioContext.sampleRate,
-            frameSize: 512,
-            numFrames: 1,
-          });
-
-          // Подключаем: микрофон → шумоподавитель → динамик (для мониторинга) и транскрибация
-          const denoiserNode = audioContext.createScriptProcessor(4096, 1, 1);
-          denoiserNode.onaudioprocess = (e) => {
-            const input = e.inputBuffer.getChannelData(0);
-            const output = e.outputBuffer.getChannelData(0);
-            // GTCRN обрабатывает каждый буфер
-            // Здесь мы бы применяли denoiser.process(), но GTCRN.js пока не поддерживает ворклеты напрямую
-            // Поэтому используем упрощённый вариант — RNNoise через отдельный ворклет
-            for (let i = 0; i < input.length; i++) {
-              output[i] = input[i];
-            }
-          };
-
-          source.connect(denoiserNode);
-          denoiserNode.connect(audioContext.destination);
-
-          return true;
-        } catch (e) {
-          console.warn('Ошибка создания аудио-пайплайна:', e);
-          return false;
-        }
-      }
-
-      // ========== КОНФИГУРАЦИЯ ПЕРЕВОДА ==========
       const LANG_CHAIN = ['ru', 'en', 'tr'];
       const LANG_NAMES = { ru: '🇷🇺', en: '🇬🇧', tr: '🇹🇷' };
 
@@ -452,7 +381,7 @@
 
           let borderColor = '#4CAF50';
           if (isLive) {
-            borderColor = '#ff9800';
+            borderColor = '#ff9800'; // оранжевый для живого блока
           } else {
             if (block.currentLang === 'en') borderColor = '#2196F3';
             if (block.currentLang === 'tr') borderColor = '#f44336';
@@ -491,7 +420,6 @@
         saveToStorage();
       }
 
-      // ========== СВАЙПЫ ==========
       function onTouchStart(e) {
         const touch = e.touches[0];
         swipeState.startX = touch.clientX;
@@ -599,7 +527,6 @@
         mouseSwipeState.currentElement = null;
       });
 
-      // ========== ОСНОВНАЯ ЛОГИКА ПЕРЕВОДОВ ==========
       async function handleSwipeLeft(index) {
         const block = blocksData[index];
         if (!block || block.live) return;
@@ -745,24 +672,6 @@
           recognition.continuous = true;
           recognition.interimResults = false;
 
-          // ========== ПОДКЛЮЧАЕМ ШУМОПОДАВИТЕЛЬ ==========
-          recognition.onaudiostart = function() {
-            // Захватываем микрофон и прогоняем через шумоподавитель
-            initDenoiser().then(success => {
-              if (success) {
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                  .then(stream => {
-                    mediaStream = stream;
-                    createAudioPipeline(stream);
-                    showToast('🎧 Шумоподавитель включён');
-                  })
-                  .catch(err => {
-                    console.warn('Не удалось захватить микрофон:', err);
-                  });
-              }
-            });
-          };
-
           recognition.onresult = function(e) {
             let text = '';
             for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -841,16 +750,6 @@
           recognition._manualStop = true;
           clearTimeout(restartTimer);
           try { recognition.stop(); } catch (_) {}
-        }
-        // Закрываем аудио-пайплайн
-        if (audioContext) {
-          audioContext.close().then(() => {
-            audioContext = null;
-          });
-        }
-        if (mediaStream) {
-          mediaStream.getTracks().forEach(track => track.stop());
-          mediaStream = null;
         }
       }
 
