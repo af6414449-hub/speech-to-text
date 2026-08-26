@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Диктофон</title>
   <style>
-    /* --- Глобальные сбросы --- */
     * {
       margin: 0;
       padding: 0;
@@ -24,7 +23,6 @@
       padding: 16px;
       font-family: system-ui, -apple-system, sans-serif;
     }
-    /* --- Контейнер приложения --- */
     .app {
       width: 100%;
       max-width: 600px;
@@ -37,7 +35,6 @@
       flex-direction: column;
       position: relative;
     }
-    /* --- Список блоков (общий контейнер) --- */
     .blocks {
       flex: 1;
       overflow-y: auto;
@@ -49,7 +46,6 @@
       scroll-behavior: smooth;
       -webkit-overflow-scrolling: touch;
     }
-    /* --- Отдельный блок --- */
     .block {
       background: #f8f9fa;
       border-radius: 12px;
@@ -62,7 +58,6 @@
       user-select: none;
       -webkit-user-select: none;
     }
-    /* --- Оранжевый (живой) блок --- */
     .block.live {
       border-left-color: #ff9800;
       background: #fff8e1;
@@ -70,7 +65,6 @@
     .block.live .block-time {
       color: #ff9800;
     }
-    /* --- Свёрнутый блок (показывает только первую строку) --- */
     .block.collapsed .block-text {
       display: -webkit-box;
       -webkit-line-clamp: 1;
@@ -79,7 +73,6 @@
       text-overflow: ellipsis;
       white-space: normal;
     }
-    /* --- Развёрнутый блок (показывает весь текст, с внутренним скроллом) --- */
     .block.expanded .block-text {
       display: block;
       white-space: pre-wrap;
@@ -88,7 +81,6 @@
       -webkit-overflow-scrolling: touch;
       padding-right: 4px;
     }
-    /* --- Текст внутри блока --- */
     .block-text {
       font-size: 16px;
       line-height: 1.6;
@@ -101,7 +93,6 @@
       margin-top: 4px;
       display: block;
     }
-    /* --- Подсказки свайпа --- */
     .block .swipe-hint {
       position: absolute;
       top: 50%;
@@ -124,7 +115,6 @@
     .block.swiping-right .swipe-hint.right {
       opacity: 1;
     }
-    /* --- Исправленный блок (после свайпа влево) --- */
     .block.fixed {
       border-left-color: #2196F3;
       background: #e3f2fd;
@@ -132,7 +122,6 @@
     .block.fixed .block-time::after {
       content: ' ✨';
     }
-    /* --- Кнопки внизу --- */
     .buttons {
       display: flex;
       align-items: center;
@@ -217,7 +206,6 @@
       background: #f44336;
       box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
     }
-    /* --- Toast-уведомления --- */
     .toast {
       position: fixed;
       bottom: 30px;
@@ -260,7 +248,6 @@
       const clearBtn = document.getElementById('clear');
       const toast = document.getElementById('toast');
 
-      // --- Состояние ---
       let isRecording = false;
       let blocksData = [];
       let recognition = null;
@@ -268,7 +255,6 @@
       let accumulatedText = '';
       let liveBlockIndex = -1;
 
-      // --- Swipe ---
       let swipeState = {
         startX: 0,
         startY: 0,
@@ -277,7 +263,6 @@
         currentIndex: -1
       };
 
-      // --- Проверка поддержки SpeechRecognition ---
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
         toast.textContent = '❌ Браузер не поддерживает';
@@ -286,7 +271,39 @@
         return;
       }
 
-      // --- Вспомогательные функции ---
+      // --- Словарь имён собственных (по корням) ---
+      const properNounsRoots = [
+        // Имена
+        'алекс', 'андрей', 'анна', 'валентин', 'виктор', 'владимир', 'галин', 'дар', 'евгений', 'екатерин',
+        'елен', 'иван', 'игор', 'камил', 'колмогорц', 'константин', 'ксения', 'лиди', 'людмил', 'максим',
+        'михаил', 'надежд', 'николай', 'ольг', 'павел', 'петр', 'ромашенк', 'светлан', 'сергей', 'татьян',
+        'шлягин', 'юрий', 'яков',
+
+        // Страны / города
+        'америк', 'англи', 'аргентин', 'белорус', 'бельги', 'болгар', 'бразили', 'венгр', 'вьетнам', 'герман',
+        'греци', 'грузин', 'египет', 'инди', 'испан', 'итали', 'казахстан', 'кипр', 'китай', 'колумби',
+        'коре', 'латви', 'литв', 'мексик', 'молдов', 'нидерланд', 'норвег', 'польш', 'португали', 'росси',
+        'румын', 'серби', 'словак', 'словен', 'сша', 'таиланд', 'турци', 'украин', 'финлянди', 'франци',
+        'хорват', 'черногори', 'чехи', 'чили', 'швейцар', 'швеци', 'эстон', 'южно-африк', 'япони',
+
+        // Визы / туризм / бюрократия
+        'анкет', 'биометр', 'виз', 'документ', 'загран', 'консульств', 'миграцион', 'мультивиз',
+        'паспорт', 'подач', 'посольств', 'регистраци', 'собеседовани', 'туризм', 'шенген',
+
+        // Фамилии и организации
+        'администраци', 'министерств', 'посольств', 'президент', 'правительств', 'программ',
+
+        // Дополнительно (из твоих текстов)
+        'автономн', 'аттестаци', 'возврат', 'двт', 'задвигать', 'колмогорц', 'родители', 'сша',
+        'челябин', 'шлягин', 'ромашенк',
+      ];
+
+      function isProperNoun(word) {
+        if (!word) return false;
+        const lower = word.toLowerCase();
+        return properNounsRoots.some(root => lower.startsWith(root));
+      }
+
       function showToast(msg) {
         toast.textContent = msg;
         toast.classList.add('show');
@@ -307,7 +324,6 @@
         return div.innerHTML;
       }
 
-      // --- Работа с localStorage ---
       function saveToStorage() {
         try {
           const data = blocksData.filter(b => !b.live);
@@ -332,7 +348,6 @@
         } catch (_) {}
       }
 
-      // --- Постобработка текста (точка в конце + заглавная после точки) ---
       function capitalizeAfterPunctuation(text) {
         return text.replace(/([.!?])\s*([а-яё])/gi, (match, punct, letter) => {
           return punct + ' ' + letter.toUpperCase();
@@ -340,9 +355,12 @@
       }
 
       function insertDotsBeforeUppercase(text) {
-        // Ставим точку перед любой заглавной буквой в середине предложения,
-        // если перед ней нет . ! ?
+        // Если слово — имя собственное (или начинается с корня) — точку не ставим
         return text.replace(/(?<![.!?])\s+([А-ЯЁ])/g, (match, letter) => {
+          const nextWord = match.trim();
+          if (isProperNoun(nextWord)) {
+            return ' ' + letter;
+          }
           return '. ' + letter;
         });
       }
@@ -351,22 +369,24 @@
         if (!text || !text.trim()) return text;
         let result = text.trim();
 
-        // 1. Ставим точку перед заглавными в середине предложения
+        // Первое слово — с большой буквы
+        result = result.charAt(0).toUpperCase() + result.slice(1);
+
+        // Точка перед заглавными (с учётом словаря)
         result = insertDotsBeforeUppercase(result);
 
-        // 2. Ставим точку в конце, если её нет
+        // Точка в конце
         const lastChar = result[result.length - 1];
         if (lastChar && !['.', '!', '?'].includes(lastChar)) {
           result += '.';
         }
 
-        // 3. Заглавная после . ! ?
+        // Заглавная после . ! ?
         result = capitalizeAfterPunctuation(result);
 
         return result;
       }
 
-      // --- Отрисовка блоков ---
       function renderBlocks() {
         if (blocksData.length === 0) {
           blocksEl.innerHTML = '';
@@ -391,11 +411,9 @@
         });
         blocksEl.innerHTML = html;
 
-        // --- События ---
         document.querySelectorAll('.block').forEach(el => {
           const idx = parseInt(el.dataset.index);
 
-          // Клик = сворачивание/разворачивание (если не live-блок)
           el.addEventListener('click', function(e) {
             if (!blocksData[idx] || blocksData[idx].live) return;
             blocksData[idx].collapsed = !blocksData[idx].collapsed;
@@ -403,7 +421,6 @@
             saveToStorage();
           });
 
-          // Свайп
           el.addEventListener('touchstart', onTouchStart, { passive: true });
           el.addEventListener('touchmove', onTouchMove, { passive: false });
           el.addEventListener('touchend', onTouchEnd, { passive: true });
@@ -413,7 +430,6 @@
         saveToStorage();
       }
 
-      // --- Swipe-обработчики ---
       function onTouchStart(e) {
         const touch = e.touches[0];
         swipeState.startX = touch.clientX;
@@ -479,7 +495,6 @@
         swipeState.currentElement = null;
       }
 
-      // --- Исправление блока через LanguageTool ---
       async function fixBlock(index) {
         const block = blocksData[index];
         if (!block || block.live) return;
@@ -538,7 +553,6 @@
         }
       }
 
-      // --- Восстановление оригинала ---
       function restoreBlock(index) {
         const block = blocksData[index];
         if (!block || block.live) return;
@@ -554,7 +568,6 @@
         showToast('↩️ Восстановлен оригинал');
       }
 
-      // --- Кнопки ---
       function updateButtons() {
         const hasBlocks = blocksData.filter(b => !b.live).length > 0;
         if (hasBlocks) {
@@ -574,7 +587,6 @@
         }
       }
 
-      // --- Добавление блока ---
       function addBlock(text, live = false) {
         if (!live && !text.trim()) return;
         if (live && text === undefined) text = ' ';
@@ -594,7 +606,6 @@
         return blocksData.length - 1;
       }
 
-      // --- Обновление живого (оранжевого) блока ---
       function scrollToBottom() {
         setTimeout(() => {
           if (liveBlockIndex >= 0 && blocksData[liveBlockIndex]) {
@@ -615,7 +626,6 @@
         }
       }
 
-      // --- Запись ---
       function startRec() {
         if (isRecording) return;
 
@@ -724,7 +734,6 @@
         else startRec();
       }
 
-      // --- Сохранение / копирование ---
       function getFullTextWithTimestamps() {
         const realBlocks = blocksData.filter(b => !b.live);
         if (realBlocks.length === 0) return '';
@@ -799,7 +808,6 @@
         }
       }
 
-      // --- Назначение событий ---
       recordBtn.addEventListener('click', toggleRec);
       saveBtn.addEventListener('click', saveFile);
       copyBtn.addEventListener('click', copyText);
@@ -816,7 +824,6 @@
         }
       });
 
-      // --- Загрузка данных ---
       loadFromStorage();
       renderBlocks();
     })();
