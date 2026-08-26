@@ -5,16 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Диктофон</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    html,
-    body {
-      height: 100%;
-      overflow: hidden;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
     body {
       background: #f5f5f5;
       display: flex;
@@ -62,9 +54,7 @@
       border-left-color: #ff9800;
       background: #fff8e1;
     }
-    .block.live .block-time {
-      color: #ff9800;
-    }
+    .block.live .block-time { color: #ff9800; }
     .block.collapsed .block-text {
       display: -webkit-box;
       -webkit-line-clamp: 1;
@@ -103,25 +93,15 @@
       transition: 0.3s;
       pointer-events: none;
     }
-    .block .swipe-hint.left {
-      left: -60px;
-    }
-    .block .swipe-hint.right {
-      right: -60px;
-    }
-    .block.swiping-left .swipe-hint.left {
-      opacity: 1;
-    }
-    .block.swiping-right .swipe-hint.right {
-      opacity: 1;
-    }
+    .block .swipe-hint.left { left: -60px; }
+    .block .swipe-hint.right { right: -60px; }
+    .block.swiping-left .swipe-hint.left { opacity: 1; }
+    .block.swiping-right .swipe-hint.right { opacity: 1; }
     .block.fixed {
       border-left-color: #2196F3;
       background: #e3f2fd;
     }
-    .block.fixed .block-time::after {
-      content: ' ✨';
-    }
+    .block.fixed .block-time::after { content: ' ✨'; }
     .buttons {
       display: flex;
       align-items: center;
@@ -131,10 +111,7 @@
       border-top: 1px solid #eee;
       flex-shrink: 0;
     }
-    .btn-clear,
-    .btn-copy,
-    .btn-save,
-    .btn-record {
+    .btn-clear, .btn-copy, .btn-save, .btn-record {
       border: none;
       border-radius: 50%;
       cursor: pointer;
@@ -146,15 +123,8 @@
       user-select: none;
       -webkit-user-select: none;
     }
-    .btn-clear:active,
-    .btn-copy:active,
-    .btn-save:active,
-    .btn-record:active {
-      transform: scale(0.9);
-    }
-    .btn-clear:disabled,
-    .btn-copy:disabled,
-    .btn-save:disabled {
+    .btn-clear:active, .btn-copy:active, .btn-save:active, .btn-record:active { transform: scale(0.9); }
+    .btn-clear:disabled, .btn-copy:disabled, .btn-save:disabled {
       opacity: 0.3;
       cursor: not-allowed;
       transform: none;
@@ -165,11 +135,9 @@
       font-size: 24px;
       background: #ff1744;
       color: white;
-      box-shadow: 0 2px 8px rgba(255, 23, 68, 0.3);
+      box-shadow: 0 2px 8px rgba(255,23,68,0.3);
     }
-    .btn-clear:disabled {
-      box-shadow: none;
-    }
+    .btn-clear:disabled { box-shadow: none; }
     .btn-copy {
       width: 56px;
       height: 56px;
@@ -180,7 +148,7 @@
     .btn-copy.active {
       background: #f9a825;
       color: white;
-      box-shadow: 0 2px 8px rgba(249, 168, 37, 0.3);
+      box-shadow: 0 2px 8px rgba(249,168,37,0.3);
     }
     .btn-save {
       width: 56px;
@@ -192,7 +160,7 @@
     .btn-save.active {
       background: #42a5f5;
       color: white;
-      box-shadow: 0 2px 8px rgba(66, 165, 245, 0.3);
+      box-shadow: 0 2px 8px rgba(66,165,245,0.3);
     }
     .btn-record {
       width: 80px;
@@ -200,11 +168,11 @@
       font-size: 36px;
       background: #4CAF50;
       color: white;
-      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+      box-shadow: 0 4px 12px rgba(76,175,80,0.3);
     }
     .btn-record.active {
       background: #f44336;
-      box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+      box-shadow: 0 4px 12px rgba(244,67,54,0.3);
     }
     .toast {
       position: fixed;
@@ -222,9 +190,7 @@
       white-space: nowrap;
       z-index: 1000;
     }
-    .toast.show {
-      opacity: 1;
-    }
+    .toast.show { opacity: 1; }
   </style>
 </head>
 <body>
@@ -255,7 +221,17 @@
       let accumulatedText = '';
       let liveBlockIndex = -1;
 
+      // --- Тач-свайп ---
       let swipeState = {
+        startX: 0,
+        startY: 0,
+        isSwiping: false,
+        currentElement: null,
+        currentIndex: -1
+      };
+
+      // --- Мышь-свайп ---
+      let mouseSwipeState = {
         startX: 0,
         startY: 0,
         isSwiping: false,
@@ -273,29 +249,19 @@
 
       // --- Словарь имён собственных (по корням) ---
       const properNounsRoots = [
-        // Имена
-        'алекс', 'андрей', 'анна', 'валентин', 'виктор', 'владимир', 'галин', 'дар', 'евгений', 'екатерин',
-        'елен', 'иван', 'игор', 'камил', 'колмогорц', 'константин', 'ксения', 'лиди', 'людмил', 'максим',
-        'михаил', 'надежд', 'николай', 'ольг', 'павел', 'петр', 'ромашенк', 'светлан', 'сергей', 'татьян',
-        'шлягин', 'юрий', 'яков',
-
-        // Страны / города
-        'америк', 'англи', 'аргентин', 'белорус', 'бельги', 'болгар', 'бразили', 'венгр', 'вьетнам', 'герман',
-        'греци', 'грузин', 'египет', 'инди', 'испан', 'итали', 'казахстан', 'кипр', 'китай', 'колумби',
-        'коре', 'латви', 'литв', 'мексик', 'молдов', 'нидерланд', 'норвег', 'польш', 'португали', 'росси',
-        'румын', 'серби', 'словак', 'словен', 'сша', 'таиланд', 'турци', 'украин', 'финлянди', 'франци',
-        'хорват', 'черногори', 'чехи', 'чили', 'швейцар', 'швеци', 'эстон', 'южно-африк', 'япони',
-
-        // Визы / туризм / бюрократия
-        'анкет', 'биометр', 'виз', 'документ', 'загран', 'консульств', 'миграцион', 'мультивиз',
-        'паспорт', 'подач', 'посольств', 'регистраци', 'собеседовани', 'туризм', 'шенген',
-
-        // Фамилии и организации
-        'администраци', 'министерств', 'посольств', 'президент', 'правительств', 'программ',
-
-        // Дополнительно (из твоих текстов)
-        'автономн', 'аттестаци', 'возврат', 'двт', 'задвигать', 'колмогорц', 'родители', 'сша',
-        'челябин', 'шлягин', 'ромашенк',
+        'алекс','андрей','анна','валентин','виктор','владимир','галин','дар','евгений','екатерин',
+        'елен','иван','игор','камил','колмогорц','константин','ксения','лиди','людмил','максим',
+        'михаил','надежд','николай','ольг','павел','петр','ромашенк','светлан','сергей','татьян',
+        'шлягин','юрий','яков',
+        'америк','англи','аргентин','белорус','бельги','болгар','бразили','венгр','вьетнам','герман',
+        'греци','грузин','египет','инди','испан','итали','казахстан','кипр','китай','колумби',
+        'коре','латви','литв','мексик','молдов','нидерланд','норвег','польш','португали','росси',
+        'румын','серби','словак','словен','сша','таиланд','турци','украин','финлянди','франци',
+        'хорват','черногори','чехи','чили','швейцар','швеци','эстон','южно-африк','япони',
+        'анкет','биометр','виз','документ','загран','консульств','миграцион','мультивиз',
+        'паспорт','подач','посольств','регистраци','собеседовани','туризм','шенген',
+        'администраци','министерств','посольств','президент','правительств','программ',
+        'автономн','аттестаци','возврат','двт','задвигать','родители','челябин'
       ];
 
       function isProperNoun(word) {
@@ -314,7 +280,7 @@
       function getFullTimestamp() {
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
-        return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) +
+        return now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
           ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
       }
 
@@ -355,12 +321,9 @@
       }
 
       function insertDotsBeforeUppercase(text) {
-        // Если слово — имя собственное (или начинается с корня) — точку не ставим
         return text.replace(/(?<![.!?])\s+([А-ЯЁ])/g, (match, letter) => {
           const nextWord = match.trim();
-          if (isProperNoun(nextWord)) {
-            return ' ' + letter;
-          }
+          if (isProperNoun(nextWord)) return ' ' + letter;
           return '. ' + letter;
         });
       }
@@ -368,22 +331,11 @@
       function postProcessText(text) {
         if (!text || !text.trim()) return text;
         let result = text.trim();
-
-        // Первое слово — с большой буквы
         result = result.charAt(0).toUpperCase() + result.slice(1);
-
-        // Точка перед заглавными (с учётом словаря)
         result = insertDotsBeforeUppercase(result);
-
-        // Точка в конце
         const lastChar = result[result.length - 1];
-        if (lastChar && !['.', '!', '?'].includes(lastChar)) {
-          result += '.';
-        }
-
-        // Заглавная после . ! ?
+        if (lastChar && !['.', '!', '?'].includes(lastChar)) result += '.';
         result = capitalizeAfterPunctuation(result);
-
         return result;
       }
 
@@ -414,6 +366,7 @@
         document.querySelectorAll('.block').forEach(el => {
           const idx = parseInt(el.dataset.index);
 
+          // Клик = сворачивание/разворачивание
           el.addEventListener('click', function(e) {
             if (!blocksData[idx] || blocksData[idx].live) return;
             blocksData[idx].collapsed = !blocksData[idx].collapsed;
@@ -421,15 +374,20 @@
             saveToStorage();
           });
 
+          // Тач-свайп
           el.addEventListener('touchstart', onTouchStart, { passive: true });
           el.addEventListener('touchmove', onTouchMove, { passive: false });
           el.addEventListener('touchend', onTouchEnd, { passive: true });
+
+          // Мышь-свайп
+          el.addEventListener('mousedown', onMouseDown);
         });
 
         updateButtons();
         saveToStorage();
       }
 
+      // --- Тач-события ---
       function onTouchStart(e) {
         const touch = e.touches[0];
         swipeState.startX = touch.clientX;
@@ -445,18 +403,14 @@
         const touch = e.touches[0];
         const deltaX = touch.clientX - swipeState.startX;
         const deltaY = touch.clientY - swipeState.startY;
-
         if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) {
           swipeState.isSwiping = false;
           return;
         }
-
         swipeState.isSwiping = true;
         e.preventDefault();
-
         const el = swipeState.currentElement;
         const threshold = 60;
-
         if (deltaX < -threshold) {
           el.classList.add('swiping-left');
           el.classList.remove('swiping-right');
@@ -472,29 +426,77 @@
         if (!swipeState.currentElement) return;
         const el = swipeState.currentElement;
         const index = swipeState.currentIndex;
-
         el.classList.remove('swiping-left', 'swiping-right');
-
         if (!swipeState.isSwiping) {
           swipeState.isSwiping = false;
           swipeState.currentElement = null;
           return;
         }
-
         const touch = e.changedTouches[0];
         const deltaX = touch.clientX - swipeState.startX;
         const threshold = 50;
-
-        if (deltaX < -threshold) {
-          fixBlock(index);
-        } else if (deltaX > threshold) {
-          restoreBlock(index);
-        }
-
+        if (deltaX < -threshold) fixBlock(index);
+        else if (deltaX > threshold) restoreBlock(index);
         swipeState.isSwiping = false;
         swipeState.currentElement = null;
       }
 
+      // --- Мышь-события ---
+      function onMouseDown(e) {
+        const el = e.currentTarget;
+        const idx = parseInt(el.dataset.index);
+        if (isNaN(idx) || !blocksData[idx] || blocksData[idx].live) return;
+        mouseSwipeState.startX = e.clientX;
+        mouseSwipeState.startY = e.clientY;
+        mouseSwipeState.isSwiping = false;
+        mouseSwipeState.currentElement = el;
+        mouseSwipeState.currentIndex = idx;
+        el.classList.remove('swiping-left', 'swiping-right');
+        e.preventDefault();
+      }
+
+      document.addEventListener('mousemove', function(e) {
+        if (!mouseSwipeState.currentElement) return;
+        const el = mouseSwipeState.currentElement;
+        const deltaX = e.clientX - mouseSwipeState.startX;
+        const deltaY = e.clientY - mouseSwipeState.startY;
+        if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) {
+          mouseSwipeState.isSwiping = false;
+          return;
+        }
+        mouseSwipeState.isSwiping = true;
+        e.preventDefault();
+        const threshold = 60;
+        if (deltaX < -threshold) {
+          el.classList.add('swiping-left');
+          el.classList.remove('swiping-right');
+        } else if (deltaX > threshold) {
+          el.classList.add('swiping-right');
+          el.classList.remove('swiping-left');
+        } else {
+          el.classList.remove('swiping-left', 'swiping-right');
+        }
+      });
+
+      document.addEventListener('mouseup', function(e) {
+        if (!mouseSwipeState.currentElement) return;
+        const el = mouseSwipeState.currentElement;
+        const index = mouseSwipeState.currentIndex;
+        el.classList.remove('swiping-left', 'swiping-right');
+        if (!mouseSwipeState.isSwiping) {
+          mouseSwipeState.isSwiping = false;
+          mouseSwipeState.currentElement = null;
+          return;
+        }
+        const deltaX = e.clientX - mouseSwipeState.startX;
+        const threshold = 50;
+        if (deltaX < -threshold) fixBlock(index);
+        else if (deltaX > threshold) restoreBlock(index);
+        mouseSwipeState.isSwiping = false;
+        mouseSwipeState.currentElement = null;
+      });
+
+      // --- LanguageTool / восстановление ---
       async function fixBlock(index) {
         const block = blocksData[index];
         if (!block || block.live) return;
@@ -502,14 +504,9 @@
           showToast('Блок уже исправлен');
           return;
         }
-
-        if (!block.originalText) {
-          block.originalText = block.text;
-        }
-
+        if (!block.originalText) block.originalText = block.text;
         const text = block.text;
         showToast('🔍 Исправление...');
-
         try {
           const response = await fetch('https://api.languagetool.org/v2/check', {
             method: 'POST',
@@ -520,9 +517,7 @@
               enabledOnly: 'false'
             })
           });
-
           const data = await response.json();
-
           let fixedText = text;
           if (data.matches && data.matches.length > 0) {
             const matches = data.matches.sort((a, b) => b.offset - a.offset);
@@ -535,9 +530,7 @@
               }
             }
           }
-
           fixedText = postProcessText(fixedText);
-
           if (fixedText !== text) {
             block.text = fixedText;
             block.fixed = true;
@@ -560,7 +553,6 @@
           showToast('ℹ️ Нет изменений для восстановления');
           return;
         }
-
         block.text = block.originalText;
         block.fixed = false;
         renderBlocks();
@@ -590,7 +582,6 @@
       function addBlock(text, live = false) {
         if (!live && !text.trim()) return;
         if (live && text === undefined) text = ' ';
-
         const block = {
           text: text,
           time: live ? '...' : getFullTimestamp(),
@@ -599,7 +590,6 @@
           fixed: false,
           originalText: text
         };
-
         blocksData.push(block);
         renderBlocks();
         saveToStorage();
@@ -610,9 +600,7 @@
         setTimeout(() => {
           if (liveBlockIndex >= 0 && blocksData[liveBlockIndex]) {
             const el = document.querySelector(`.block[data-index="${liveBlockIndex}"] .block-text`);
-            if (el) {
-              el.scrollTop = el.scrollHeight;
-            }
+            if (el) el.scrollTop = el.scrollHeight;
           }
         }, 50);
       }
@@ -628,7 +616,6 @@
 
       function startRec() {
         if (isRecording) return;
-
         if (!recognition) {
           recognition = new SpeechRecognition();
           recognition.lang = 'ru-RU';
@@ -641,18 +628,10 @@
               text += e.results[i][0].transcript;
             }
             if (!text.trim()) return;
-
             const tail = accumulatedText.slice(-20);
-            if (tail.includes(text.trim()) && text.length < 30) {
-              return;
-            }
-
-            if (accumulatedText) {
-              accumulatedText += ' ' + text;
-            } else {
-              accumulatedText = text;
-            }
-
+            if (tail.includes(text.trim()) && text.length < 30) return;
+            if (accumulatedText) accumulatedText += ' ' + text;
+            else accumulatedText = text;
             updateLiveBlock();
           };
 
@@ -685,18 +664,15 @@
             } else {
               isRecording = false;
               recognition._manualStop = false;
-
               if (liveBlockIndex >= 0) {
                 blocksData.splice(liveBlockIndex, 1);
                 liveBlockIndex = -1;
               }
-
               if (accumulatedText.trim()) {
                 const finalText = postProcessText(accumulatedText);
                 addBlock(finalText, false);
                 accumulatedText = '';
               }
-
               renderBlocks();
               recordBtn.textContent = '▶';
               recordBtn.className = 'btn-record';
@@ -709,13 +685,11 @@
         accumulatedText = '';
         recordBtn.textContent = '■';
         recordBtn.className = 'btn-record active';
-
         if (liveBlockIndex === -1) {
           liveBlockIndex = addBlock(' ', true);
         }
         renderBlocks();
         scrollToBottom();
-
         try { recognition.start(); } catch (_) {}
       }
 
@@ -742,10 +716,7 @@
 
       function copyText() {
         const text = getFullTextWithTimestamps();
-        if (!text) {
-          showToast('❌ Нет текста');
-          return;
-        }
+        if (!text) { showToast('❌ Нет текста'); return; }
         navigator.clipboard.writeText(text).then(() => {
           showToast('✅ Скопировано в буфер');
         }).catch(() => {
@@ -755,18 +726,12 @@
 
       function saveFile() {
         const realBlocks = blocksData.filter(b => !b.live);
-        if (realBlocks.length === 0) {
-          showToast('❌ Нет текста');
-          return;
-        }
-
+        if (realBlocks.length === 0) { showToast('❌ Нет текста'); return; }
         const text = getFullTextWithTimestamps();
-
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
-        const name = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) +
+        const name = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
           '_' + pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds()) + '.txt';
-
         try {
           if (navigator.share) {
             const file = new File([text], name, { type: 'text/plain' });
@@ -792,10 +757,7 @@
 
       function clearAll() {
         const realBlocks = blocksData.filter(b => !b.live);
-        if (realBlocks.length === 0) {
-          showToast('Нет блоков для очистки');
-          return;
-        }
+        if (realBlocks.length === 0) { showToast('Нет блоков для очистки'); return; }
         if (confirm('Очистить все блоки?')) {
           blocksData = blocksData.filter(b => b.live);
           if (blocksData.length > 0 && blocksData[0].live) {
