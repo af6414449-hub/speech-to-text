@@ -97,15 +97,16 @@
       border: none;
       font-size: 24px;
       cursor: pointer;
-      background: #ffebee;
-      color: #c62828;
+      background: #ff1744;
+      color: white;
       transition: 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 2px 8px rgba(255,23,68,0.3);
     }
     .btn-clear:active { transform: scale(0.9); }
-    .btn-clear:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-clear:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
     .btn-copy {
       width: 56px;
       height: 56px;
@@ -122,8 +123,9 @@
     }
     .btn-copy:active { transform: scale(0.9); }
     .btn-copy.active {
-      background: #9c27b0;
+      background: #f9a825;
       color: white;
+      box-shadow: 0 2px 8px rgba(249,168,37,0.3);
     }
     .btn-copy:disabled { opacity: 0.3; cursor: not-allowed; }
     .btn-save {
@@ -142,8 +144,9 @@
     }
     .btn-save:active { transform: scale(0.9); }
     .btn-save.active {
-      background: #2196F3;
+      background: #42a5f5;
       color: white;
+      box-shadow: 0 2px 8px rgba(66,165,245,0.3);
     }
     .btn-save:disabled { opacity: 0.3; cursor: not-allowed; }
     .btn-record {
@@ -228,10 +231,11 @@
         toast._timer = setTimeout(() => toast.classList.remove('show'), 3000);
       }
 
-      function getTime() {
+      function getFullTimestamp() {
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
-        return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+        return now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
+          ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
       }
 
       function renderBlocks() {
@@ -297,7 +301,7 @@
         if (!text.trim()) return;
         blocksData.push({
           text: text.trim(),
-          time: live ? '...' : getTime(),
+          time: live ? '...' : getFullTimestamp(),
           collapsed: !live,
           live: live
         });
@@ -399,14 +403,14 @@
         else startRec();
       }
 
-      function getFullText() {
+      function getFullTextWithTimestamps() {
         const realBlocks = blocksData.filter(b => !b.live);
         if (realBlocks.length === 0) return '';
-        return realBlocks.map(b => b.text).join('\n\n');
+        return realBlocks.map(b => `${b.time}  ${b.text}`).join('\n\n');
       }
 
       function copyText() {
-        const text = getFullText();
+        const text = getFullTextWithTimestamps();
         if (!text) {
           showToast('❌ Нет текста');
           return;
@@ -425,8 +429,7 @@
           return;
         }
 
-        // Формируем текст с таймкодами
-        const text = realBlocks.map(b => `${b.time}  ${b.text}`).join('\n\n');
+        const text = getFullTextWithTimestamps();
 
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
