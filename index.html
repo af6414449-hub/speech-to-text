@@ -53,7 +53,6 @@
       color: #e8e8e8;
     }
     .block.live {
-      border-left-color: #ff9800;
       background: #2d241a;
     }
     .block.live .block-time { color: #ff9800; }
@@ -381,8 +380,12 @@
           const langLabel = LANG_NAMES[block.currentLang] || '🇷🇺';
 
           let borderColor = '#4CAF50';
-          if (block.currentLang === 'en') borderColor = '#2196F3';
-          if (block.currentLang === 'tr') borderColor = '#f44336';
+          if (isLive) {
+            borderColor = '#ff9800'; // оранжевый для живого блока
+          } else {
+            if (block.currentLang === 'en') borderColor = '#2196F3';
+            if (block.currentLang === 'tr') borderColor = '#f44336';
+          }
 
           const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}`;
           html += `
