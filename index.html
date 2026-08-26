@@ -232,6 +232,30 @@
           ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
       }
 
+      // --- localStorage ---
+      function saveToStorage() {
+        try {
+          const data = blocksData.filter(b => !b.live);
+          localStorage.setItem('blocks', JSON.stringify(data));
+        } catch (_) {}
+      }
+
+      function loadFromStorage() {
+        try {
+          const raw = localStorage.getItem('blocks');
+          if (raw) {
+            blocksData = JSON.parse(raw);
+            blocksData = blocksData.map(b => ({
+              ...b,
+              collapsed: b.collapsed !== undefined ? b.collapsed : true,
+              live: false
+            }));
+            renderBlocks();
+          }
+        } catch (_) {}
+      }
+
+      // --- Render ---
       function renderBlocks() {
         if (blocksData.length === 0) {
           blocksEl.innerHTML = '';
@@ -258,12 +282,14 @@
             if (!isNaN(idx) && blocksData[idx] && !blocksData[idx].live) {
               blocksData[idx].collapsed = !blocksData[idx].collapsed;
               renderBlocks();
+              saveToStorage();
             }
           });
         });
 
         updateButtons();
         blocksEl.scrollTop = blocksEl.scrollHeight;
+        saveToStorage();
       }
 
       function escapeHtml(text) {
@@ -292,14 +318,17 @@
       }
 
       function addBlock(text, live = false) {
-        if (!text.trim()) return;
+        if (!live && !text.trim()) return;
+        if (live && text === undefined) text = ' ';
+        
         blocksData.push({
-          text: text.trim(),
+          text: text,
           time: live ? '...' : getFullTimestamp(),
           collapsed: !live,
           live: live
         });
         renderBlocks();
+        saveToStorage();
         return blocksData.length - 1;
       }
 
@@ -309,6 +338,7 @@
           blocksData[liveBlockIndex].text = text || ' ';
           blocksData[liveBlockIndex].collapsed = false;
           renderBlocks();
+          // Не сохраняем живой блок в localStorage
         }
       }
 
@@ -342,7 +372,6 @@
           };
 
           recognition.onend = function() {
-            // Если запись ещё идёт — просто перезапускаем, блок не трогаем
             if (isRecording && !recognition._manualStop) {
               clearTimeout(restartTimer);
               restartTimer = setTimeout(() => {
@@ -351,12 +380,10 @@
                 }
               }, 300);
             } else {
-              // Финальная остановка: превращаем оранжевый в зелёный
               isRecording = false;
               recognition._manualStop = false;
               
               if (liveBlockIndex >= 0) {
-                // Удаляем оранжевый
                 blocksData.splice(liveBlockIndex, 1);
                 liveBlockIndex = -1;
               }
@@ -379,7 +406,6 @@
         recordBtn.textContent = '■';
         recordBtn.className = 'btn-record active';
 
-        // Создаём оранжевый блок, если его нет
         if (liveBlockIndex === -1) {
           liveBlockIndex = addBlock(' ', true);
         }
@@ -472,10 +498,12 @@
             liveText = '';
           }
           renderBlocks();
+          localStorage.removeItem('blocks');
           showToast('🗑 Очищено');
         }
       }
 
+      // --- Events ---
       recordBtn.addEventListener('click', toggleRec);
       saveBtn.addEventListener('click', saveFile);
       copyBtn.addEventListener('click', copyText);
@@ -492,6 +520,8 @@
         }
       });
 
+      // --- Init ---
+      loadFromStorage();
       renderBlocks();
     })();
   </script>
