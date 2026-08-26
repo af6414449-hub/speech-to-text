@@ -413,9 +413,6 @@
       function postProcessText(text) {
         if (!text || !text.trim()) return text;
         let result = text.trim();
-        result = result.replace(/(^|\.\s+|\!\s+|\?\s+)(я)\b/gi, (match, prefix, word) => {
-          return prefix + 'Я';
-        });
         const lastChar = result[result.length - 1];
         if (lastChar && !['.', '!', '?'].includes(lastChar)) {
           result += '.';
@@ -555,7 +552,7 @@
           recognition = new SpeechRecognition();
           recognition.lang = 'ru-RU';
           recognition.continuous = true;
-          recognition.interimResults = false; // <- ГЛАВНОЕ ИЗМЕНЕНИЕ
+          recognition.interimResults = false;
 
           recognition.onresult = function(e) {
             let text = '';
@@ -564,22 +561,31 @@
             }
             if (!text.trim()) return;
 
-            // Проверка на дублирование (финальный результат)
+            // Защита от дублей
             if (text === lastFinalText) return;
-            lastFinalText = text;
-
-            // Накопление текста
-            if (accumulatedText.includes(text) && text.length < accumulatedText.length) {
-              // Это дубль — игнорируем
+            
+            // Если текст уже есть внутри накопленного — игнорируем
+            if (accumulatedText.includes(text.trim()) && text.length < accumulatedText.length) {
               return;
             }
-            
+
+            // Если новый текст длиннее — обновляем (продолжение)
             if (text.length > accumulatedText.length) {
               accumulatedText = text;
-            } else if (!accumulatedText.includes(text) && text.length > 10) {
+            } 
+            // Если новый текст короче — добавляем как новый фрагмент (после паузы)
+            else if (text.length < accumulatedText.length) {
+              // Проверяем, не является ли этот текст уже частью накопленного
+              if (!accumulatedText.includes(text.trim())) {
+                accumulatedText += ' ' + text;
+              }
+            }
+            // Если длина такая же — проверяем, не другой ли это текст
+            else if (text !== accumulatedText && !accumulatedText.includes(text.trim())) {
               accumulatedText += ' ' + text;
             }
-            
+
+            lastFinalText = text;
             updateLiveBlock();
           };
 
