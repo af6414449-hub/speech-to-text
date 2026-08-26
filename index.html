@@ -409,6 +409,13 @@
         swipeState.currentElement = null;
       }
 
+      function capitalizeAfterPunctuation(text) {
+        // Ставим заглавную после . ! ?
+        return text.replace(/([.!?])\s*([а-яё])/gi, (match, punct, letter) => {
+          return punct + ' ' + letter.toUpperCase();
+        });
+      }
+
       function postProcessText(text) {
         if (!text || !text.trim()) return text;
         let result = text.trim();
@@ -416,6 +423,7 @@
         if (lastChar && !['.', '!', '?'].includes(lastChar)) {
           result += '.';
         }
+        result = capitalizeAfterPunctuation(result);
         return result;
       }
 
@@ -574,10 +582,10 @@
             updateLiveBlock();
           };
 
-          // ⚡ НОВОЕ: ставим точку при паузе
           recognition.onsoundend = function() {
             if (accumulatedText && !accumulatedText.match(/[.!?]$/)) {
               accumulatedText += '.';
+              accumulatedText = capitalizeAfterPunctuation(accumulatedText);
               updateLiveBlock();
             }
           };
