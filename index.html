@@ -131,11 +131,15 @@
       width: 56px;
       height: 56px;
       font-size: 24px;
+      background: #3a3a3a;
+      color: #999;
+      box-shadow: none;
+    }
+    .btn-clear.active {
       background: #ff1744;
       color: white;
       box-shadow: 0 2px 8px rgba(255,23,68,0.3);
     }
-    .btn-clear:disabled { box-shadow: none; }
     .btn-save {
       width: 56px;
       height: 56px;
@@ -225,7 +229,6 @@
       let swipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
       let mouseSwipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
 
-      // Долгое нажатие
       let longPressTimer = null;
       let longPressTriggered = false;
 
@@ -240,7 +243,6 @@
       const LANG_CHAIN = ['ru', 'en', 'tr'];
       const LANG_NAMES = { ru: '🇷🇺', en: '🇬🇧', tr: '🇹🇷' };
 
-      // ===================== ВОПРОСИТЕЛЬНЫЕ СЛОВА =====================
       const questionWords = [
         'как', 'где', 'когда', 'почему', 'зачем', 'откуда', 'куда',
         'сколько', 'чей', 'чья', 'чье', 'чьи', 'кто', 'что',
@@ -256,7 +258,6 @@
         return false;
       }
 
-      // ===================== ПЕРЕВОДЫ =====================
       async function translateText(text, targetLang) {
         if (!text || !text.trim()) return text;
         try {
@@ -434,7 +435,7 @@
         document.querySelectorAll('.block').forEach(el => {
           const idx = parseInt(el.dataset.index);
 
-          // ========== ДОЛГОЕ НАЖАТИЕ ==========
+          // ========== ДОЛГОЕ НАЖАТИЕ (700 мс) ==========
           el.addEventListener('pointerdown', function(e) {
             longPressTriggered = false;
             longPressTimer = setTimeout(() => {
@@ -448,7 +449,7 @@
                   showToast('🗑 Блок удалён');
                 }
               }
-            }, 1000);
+            }, 700);
           });
 
           el.addEventListener('pointerup', function() {
@@ -680,7 +681,7 @@
           copyBtn.disabled = false;
           copyBtn.className = 'btn-copy active';
           clearBtn.disabled = false;
-          clearBtn.className = 'btn-clear';
+          clearBtn.className = 'btn-clear active';
         } else {
           saveBtn.disabled = true;
           saveBtn.className = 'btn-save';
