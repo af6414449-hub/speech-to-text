@@ -187,10 +187,11 @@
       const toast = document.getElementById('toast');
 
       let isRecording = false;
-      let currentText = '';
+      let finalText = '';
       let blocksData = [];
       let recognition = null;
       let restartTimer = null;
+      let lastProcessedText = '';
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -276,10 +277,14 @@
           collapsed: !live,
           live: live
         });
-        if (!live) currentText = '';
+        if (!live) {
+          finalText = '';
+          lastProcessedText = '';
+        }
         renderBlocks();
       }
 
+      // ГЛАВНОЕ: дедупликация текста через setInterval
       function startRec() {
         if (isRecording) return;
         if (!recognition) {
@@ -288,29 +293,19 @@
           recognition.continuous = true;
           recognition.interimResults = true;
 
+          // Собираем все результаты в одну строку
+          let fullText = '';
+
           recognition.onresult = function(e) {
-            let newFinal = '';
-            let newInterim = '';
-
+            let newText = '';
             for (let i = e.resultIndex; i < e.results.length; i++) {
-              const r = e.results[i];
-              const chunk = r[0].transcript;
-              if (r.isFinal) {
-                newFinal += chunk + ' ';
-              } else {
-                newInterim += chunk;
-              }
+              newText += e.results[i][0].transcript;
             }
-
-            if (newFinal) {
-              if (!currentText.endsWith(newFinal)) {
-                currentText += newFinal;
-              }
-              // Обновляем живой блок
-              updateLiveBlock(currentText);
-            } else if (newInterim) {
-              // Показываем промежуточный текст
-              updateLiveBlock(currentText + (currentText ? ' ' : '') + newInterim);
+            // Сохраняем только если текст изменился
+            if (newText && newText !== lastProcessedText) {
+              fullText += newText;
+              lastProcessedText = newText;
+              updateLiveBlock(fullText);
             }
           };
 
@@ -335,10 +330,10 @@
             } else {
               isRecording = false;
               recognition._manualStop = false;
-              // Убираем живой блок и сохраняем финальный
+              // Сохраняем финальный текст как блок
               blocksData = blocksData.filter(b => !b.live);
-              if (currentText.trim()) {
-                addBlock(currentText, false);
+              if (finalText.trim()) {
+                addBlock(finalText, false);
               }
               renderBlocks();
             }
@@ -347,41 +342,33 @@
 
         isRecording = true;
         recognition._manualStop = false;
+        finalText = '';
+        lastProcessedText = '';
         record.textContent = '■';
         record.className = 'btn-record active';
-        
-        // Создаём живой блок для отображения текста
-        if (currentText.trim()) {
-          addBlock(currentText, true);
-        } else {
-          // Пустой блок для показа промежуточного текста
-          blocksData.push({
-            text: '',
-            time: '...',
-            collapsed: false,
-            live: true
-          });
-          renderBlocks();
-        }
-        
+
+        // Создаём живой блок
+        blocksData.push({
+          text: '',
+          time: '...',
+          collapsed: false,
+          live: true
+        });
+        renderBlocks();
+
         try { recognition.start(); } catch(_) {}
       }
 
       function updateLiveBlock(text) {
+        finalText = text;
         // Находим последний живой блок
-        let liveIndex = -1;
         for (let i = blocksData.length - 1; i >= 0; i--) {
           if (blocksData[i].live) {
-            liveIndex = i;
-            break;
+            blocksData[i].text = text;
+            blocksData[i].collapsed = false;
+            renderBlocks();
+            return;
           }
-        }
-        
-        if (liveIndex >= 0) {
-          blocksData[liveIndex].text = text;
-          // Не сворачиваем живой блок
-          blocksData[liveIndex].collapsed = false;
-          renderBlocks();
         }
       }
 
@@ -453,6 +440,7 @@
           blocksData = blocksData.filter(b => b.live);
           if (blocksData.length > 0 && blocksData[0].live) {
             blocksData[0].text = '';
+            finalText = '';
           }
           renderBlocks();
           showToast('🗑 Очищено');
