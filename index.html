@@ -242,10 +242,9 @@
       let recognition = null;
       let restartTimer = null;
       
-      // Накопление текста вручную
       let accumulatedText = '';
       let liveBlockIndex = -1;
-      let lastWords = ''; // последние 5 слов для проверки дублей
+      let lastFinalText = '';
 
       let swipeState = {
         startX: 0,
@@ -556,7 +555,7 @@
           recognition = new SpeechRecognition();
           recognition.lang = 'ru-RU';
           recognition.continuous = true;
-          recognition.interimResults = true;
+          recognition.interimResults = false; // <- ГЛАВНОЕ ИЗМЕНЕНИЕ
 
           recognition.onresult = function(e) {
             let text = '';
@@ -565,18 +564,16 @@
             }
             if (!text.trim()) return;
 
-            // Проверка на дублирование
-            const words = text.split(' ');
-            const last5 = words.slice(-5).join(' ');
-            
-            if (last5 === lastWords && accumulatedText.includes(text)) {
+            // Проверка на дублирование (финальный результат)
+            if (text === lastFinalText) return;
+            lastFinalText = text;
+
+            // Накопление текста
+            if (accumulatedText.includes(text) && text.length < accumulatedText.length) {
               // Это дубль — игнорируем
               return;
             }
             
-            lastWords = last5;
-            
-            // Обновляем накопленный текст
             if (text.length > accumulatedText.length) {
               accumulatedText = text;
             } else if (!accumulatedText.includes(text) && text.length > 10) {
@@ -617,7 +614,7 @@
                 const finalText = postProcessText(accumulatedText);
                 addBlock(finalText, false);
                 accumulatedText = '';
-                lastWords = '';
+                lastFinalText = '';
               }
               
               renderBlocks();
@@ -630,7 +627,7 @@
         isRecording = true;
         recognition._manualStop = false;
         accumulatedText = '';
-        lastWords = '';
+        lastFinalText = '';
         recordBtn.textContent = '■';
         recordBtn.className = 'btn-record active';
 
@@ -724,7 +721,7 @@
           if (blocksData.length > 0 && blocksData[0].live) {
             blocksData[0].text = ' ';
             accumulatedText = '';
-            lastWords = '';
+            lastFinalText = '';
           }
           renderBlocks();
           localStorage.removeItem('blocks');
