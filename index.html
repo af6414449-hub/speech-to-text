@@ -241,11 +241,11 @@
       let blocksData = [];
       let recognition = null;
       let restartTimer = null;
-      let liveText = '';
+      
+      // Накопление текста вручную
+      let accumulatedText = '';
       let liveBlockIndex = -1;
-      let lastFullText = ''; // для отслеживания изменений на Android
 
-      // --- Swipe state ---
       let swipeState = {
         startX: 0,
         startY: 0,
@@ -323,7 +323,6 @@
         });
         blocksEl.innerHTML = html;
 
-        // Обработчики кликов (сворачивание/разворачивание)
         document.querySelectorAll('.block').forEach(el => {
           el.addEventListener('click', function(e) {
             const idx = parseInt(this.dataset.index);
@@ -335,7 +334,6 @@
           });
         });
 
-        // Обработчики свайпов
         document.querySelectorAll('.block').forEach(el => {
           el.addEventListener('touchstart', onTouchStart, { passive: true });
           el.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -347,7 +345,6 @@
         saveToStorage();
       }
 
-      // --- Swipe handlers ---
       function onTouchStart(e) {
         const touch = e.touches[0];
         swipeState.startX = touch.clientX;
@@ -413,28 +410,19 @@
         swipeState.currentElement = null;
       }
 
-      // --- Пост-обработка текста ---
       function postProcessText(text) {
         if (!text || !text.trim()) return text;
-        
         let result = text.trim();
-        
-        // 1. Исправляем "я" → "Я" в начале предложений
-        // Разбиваем на предложения по . ! ? и исправляем
         result = result.replace(/(^|\.\s+|\!\s+|\?\s+)(я)\b/gi, (match, prefix, word) => {
           return prefix + 'Я';
         });
-        
-        // 2. Добавляем точку в конце, если её нет
         const lastChar = result[result.length - 1];
         if (lastChar && !['.', '!', '?'].includes(lastChar)) {
           result += '.';
         }
-        
         return result;
       }
 
-      // --- Исправление блока через LanguageTool ---
       async function fixBlock(index) {
         const block = blocksData[index];
         if (!block || block.live) return;
@@ -466,7 +454,6 @@
           let fixedText = text;
           if (data.matches && data.matches.length > 0) {
             const matches = data.matches.sort((a, b) => b.offset - a.offset);
-            
             for (const match of matches) {
               if (match.replacements && match.replacements.length > 0) {
                 const replacement = match.replacements[0].value;
@@ -477,7 +464,6 @@
             }
           }
 
-          // Пост-обработка
           fixedText = postProcessText(fixedText);
 
           if (fixedText !== text) {
@@ -554,32 +540,9 @@
         return blocksData.length - 1;
       }
 
-      function updateLiveBlock(text) {
-        if (!text || !text.trim()) {
-          liveText = '';
-          if (liveBlockIndex >= 0 && blocksData[liveBlockIndex]) {
-            blocksData[liveBlockIndex].text = ' ';
-            renderBlocks();
-          }
-          return;
-        }
-
-        // Фикс для Android: проверяем, не является ли новый текст расширением старого
-        if (lastFullText && text.startsWith(lastFullText) && text.length > lastFullText.length) {
-          // Это новое продолжение — показываем весь текст
-          liveText = text;
-        } else if (lastFullText && text.length < lastFullText.length) {
-          // Это может быть промежуточный результат — оставляем старый
-          return;
-        } else {
-          // Новый текст
-          liveText = text;
-        }
-        
-        lastFullText = text;
-
+      function updateLiveBlock() {
         if (liveBlockIndex >= 0 && blocksData[liveBlockIndex]) {
-          blocksData[liveBlockIndex].text = liveText || ' ';
+          blocksData[liveBlockIndex].text = accumulatedText || ' ';
           blocksData[liveBlockIndex].collapsed = false;
           renderBlocks();
         }
@@ -600,7 +563,17 @@
               text += e.results[i][0].transcript;
             }
             if (text.trim()) {
-              updateLiveBlock(text);
+              // Накопление текста
+              if (text.length > accumulatedText.length) {
+                accumulatedText = text;
+              } else if (text.length < accumulatedText.length) {
+                // Это может быть новый фрагмент после паузы — добавляем, если нет дубля
+                const lastWords = accumulatedText.split(' ').slice(-5).join(' ');
+                if (!text.includes(lastWords) && !accumulatedText.includes(text)) {
+                  accumulatedText += ' ' + text;
+                }
+              }
+              updateLiveBlock();
             }
           };
 
@@ -631,12 +604,10 @@
                 liveBlockIndex = -1;
               }
               
-              if (liveText.trim()) {
-                // Пост-обработка при сохранении
-                const finalText = postProcessText(liveText);
+              if (accumulatedText.trim()) {
+                const finalText = postProcessText(accumulatedText);
                 addBlock(finalText, false);
-                liveText = '';
-                lastFullText = '';
+                accumulatedText = '';
               }
               
               renderBlocks();
@@ -648,8 +619,7 @@
 
         isRecording = true;
         recognition._manualStop = false;
-        liveText = '';
-        lastFullText = '';
+        accumulatedText = '';
         recordBtn.textContent = '■';
         recordBtn.className = 'btn-record active';
 
@@ -742,8 +712,7 @@
           blocksData = blocksData.filter(b => b.live);
           if (blocksData.length > 0 && blocksData[0].live) {
             blocksData[0].text = ' ';
-            liveText = '';
-            lastFullText = '';
+            accumulatedText = '';
           }
           renderBlocks();
           localStorage.removeItem('blocks');
@@ -751,7 +720,6 @@
         }
       }
 
-      // --- Events ---
       recordBtn.addEventListener('click', toggleRec);
       saveBtn.addEventListener('click', saveFile);
       copyBtn.addEventListener('click', copyText);
@@ -768,7 +736,6 @@
         }
       });
 
-      // --- Init ---
       loadFromStorage();
       renderBlocks();
     })();
