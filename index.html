@@ -20,12 +20,13 @@
       max-width: 600px;
       height: 100%;
       max-height: 700px;
-      background: white;
+      background: #fefcf0;
       border-radius: 24px;
       padding: 20px;
       display: flex;
       flex-direction: column;
       position: relative;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
     }
     .blocks {
       flex: 1;
@@ -221,7 +222,6 @@
       let accumulatedText = '';
       let liveBlockIndex = -1;
 
-      // --- Тач-свайп ---
       let swipeState = {
         startX: 0,
         startY: 0,
@@ -230,7 +230,6 @@
         currentIndex: -1
       };
 
-      // --- Мышь-свайп ---
       let mouseSwipeState = {
         startX: 0,
         startY: 0,
@@ -247,7 +246,6 @@
         return;
       }
 
-      // --- Словарь имён собственных (по корням) ---
       const properNounsRoots = [
         'алекс','андрей','анна','валентин','виктор','владимир','галин','дар','евгений','екатерин',
         'елен','иван','игор','камил','колмогорц','константин','ксения','лиди','людмил','максим',
@@ -375,7 +373,6 @@
         document.querySelectorAll('.block').forEach(el => {
           const idx = parseInt(el.dataset.index);
 
-          // Клик = сворачивание/разворачивание
           el.addEventListener('click', function(e) {
             if (!blocksData[idx] || blocksData[idx].live) return;
             blocksData[idx].collapsed = !blocksData[idx].collapsed;
@@ -383,12 +380,10 @@
             saveToStorage();
           });
 
-          // Тач-свайп
           el.addEventListener('touchstart', onTouchStart, { passive: true });
           el.addEventListener('touchmove', onTouchMove, { passive: false });
           el.addEventListener('touchend', onTouchEnd, { passive: true });
 
-          // Мышь-свайп
           el.addEventListener('mousedown', onMouseDown);
         });
 
@@ -396,7 +391,6 @@
         saveToStorage();
       }
 
-      // --- Тач-события ---
       function onTouchStart(e) {
         const touch = e.touches[0];
         swipeState.startX = touch.clientX;
@@ -450,7 +444,6 @@
         swipeState.currentElement = null;
       }
 
-      // --- Мышь-события ---
       function onMouseDown(e) {
         const el = e.currentTarget;
         const idx = parseInt(el.dataset.index);
@@ -505,18 +498,15 @@
         mouseSwipeState.currentElement = null;
       });
 
-      // --- LanguageTool / восстановление ---
       async function fixBlock(index) {
         const block = blocksData[index];
         if (!block || block.live) return;
 
-        // Если уже показываем исправленную — ничего не делаем
         if (block.fixed) {
           showToast('Блок уже исправлен');
           return;
         }
 
-        // Если исправленная версия уже есть — просто переключаем
         if (block.fixedText) {
           block.text = block.fixedText;
           block.fixed = true;
@@ -526,7 +516,6 @@
           return;
         }
 
-        // Первый раз — запрос к API
         if (!block.originalText) block.originalText = block.text;
         const text = block.text;
         showToast('🔍 Исправление...');
@@ -578,13 +567,11 @@
         const block = blocksData[index];
         if (!block || block.live) return;
 
-        // Если уже показываем оригинал — ничего не делаем
         if (!block.fixed) {
           showToast('ℹ️ Блок уже в оригинале');
           return;
         }
 
-        // Возвращаем оригинал
         block.text = block.originalText || block.text;
         block.fixed = false;
         renderBlocks();
