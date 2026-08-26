@@ -99,11 +99,6 @@
     .block .swipe-hint.right { right: -60px; }
     .block.swiping-left .swipe-hint.left { opacity: 1; }
     .block.swiping-right .swipe-hint.right { opacity: 1; }
-    .block.fixed {
-      border-left-color: #2196F3;
-      background: #1a2a3a;
-    }
-    .block.fixed .block-time::after { content: ' ✨'; }
     .buttons {
       display: flex;
       align-items: center;
@@ -259,7 +254,6 @@
 
       function getPrevLang(currentLang) {
         const idx = LANG_CHAIN.indexOf(currentLang);
-        // Если текущий — первый (оригинал), возвращаем последний (турецкий)
         if (idx === 0) return LANG_CHAIN[LANG_CHAIN.length - 1];
         return LANG_CHAIN[(idx - 1 + LANG_CHAIN.length) % LANG_CHAIN.length];
       }
@@ -382,10 +376,14 @@
           const isCollapsed = block.collapsed !== false;
           const isLive = block.live || false;
           const langLabel = LANG_NAMES[block.currentLang] || '🇷🇺';
-          const isTranslated = block.currentLang && block.currentLang !== 'ru';
-          const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''} ${isTranslated ? 'fixed' : ''}`;
+
+          let borderColor = '#4CAF50'; // зелёный по умолчанию
+          if (block.currentLang === 'en') borderColor = '#2196F3'; // синий
+          if (block.currentLang === 'tr') borderColor = '#f44336'; // красный
+
+          const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}`;
           html += `
-            <div class="${blockClass}" data-index="${index}">
+            <div class="${blockClass}" data-index="${index}" style="border-left-color: ${borderColor};">
               <div class="block-text">${escapeHtml(block.text)}</div>
               <span class="block-time">${block.time} ${langLabel}</span>
               <span class="swipe-hint left">← перевести</span>
@@ -533,7 +531,6 @@
 
         const nextLang = getNextLang(block.currentLang);
 
-        // Если следующий язык — русский, возвращаем оригинал
         if (nextLang === 'ru') {
           block.text = block.originalText;
           block.currentLang = 'ru';
@@ -543,7 +540,6 @@
           return;
         }
 
-        // Если перевод уже есть в кеше — берём его
         if (block.translations[nextLang]) {
           block.text = block.translations[nextLang];
           block.currentLang = nextLang;
@@ -553,7 +549,6 @@
           return;
         }
 
-        // Иначе — запрос к API
         showToast(`⏳ Перевод на ${LANG_NAMES[nextLang]}...`);
         const translated = await translateText(block.originalText, nextLang);
         if (translated && translated !== block.originalText) {
@@ -576,7 +571,6 @@
 
         const prevLang = getPrevLang(block.currentLang);
 
-        // Если предыдущий язык — русский, возвращаем оригинал
         if (prevLang === 'ru') {
           block.text = block.originalText;
           block.currentLang = 'ru';
@@ -586,7 +580,6 @@
           return;
         }
 
-        // Если перевод в кеше — берём его
         if (block.translations[prevLang]) {
           block.text = block.translations[prevLang];
           block.currentLang = prevLang;
@@ -596,7 +589,6 @@
           return;
         }
 
-        // Если нет в кеше — запрос
         showToast(`⏳ ${LANG_NAMES[prevLang]}...`);
         const translated = await translateText(block.originalText, prevLang);
         if (translated && translated !== block.originalText) {
