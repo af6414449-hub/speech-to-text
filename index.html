@@ -252,7 +252,6 @@
         }
       }
 
-      // ===================== КЕШ ПЕРЕВОДОВ В БЛОКЕ =====================
       function getNextLang(currentLang) {
         const idx = LANG_CHAIN.indexOf(currentLang);
         return LANG_CHAIN[(idx + 1) % LANG_CHAIN.length];
@@ -260,6 +259,8 @@
 
       function getPrevLang(currentLang) {
         const idx = LANG_CHAIN.indexOf(currentLang);
+        // Если текущий — первый (оригинал), возвращаем последний (турецкий)
+        if (idx === 0) return LANG_CHAIN[LANG_CHAIN.length - 1];
         return LANG_CHAIN[(idx - 1 + LANG_CHAIN.length) % LANG_CHAIN.length];
       }
 
@@ -572,12 +573,6 @@
         if (!block || block.live) return;
 
         ensureBlockHasTranslations(block);
-
-        // Если уже оригинал — ничего не делаем
-        if (block.currentLang === 'ru') {
-          showToast('ℹ️ Уже оригинал');
-          return;
-        }
 
         const prevLang = getPrevLang(block.currentLang);
 
