@@ -229,7 +229,6 @@
         return;
       }
 
-      // ===================== ПЕРЕВОДЫ =====================
       const LANG_CHAIN = ['ru', 'en', 'tr'];
       const LANG_NAMES = { ru: '🇷🇺', en: '🇬🇧', tr: '🇹🇷' };
 
@@ -263,7 +262,6 @@
         if (!block.currentLang) block.currentLang = 'ru';
       }
 
-      // ===================== ОСТАЛЬНОЙ КОД =====================
       const properNounsRoots = [
         'алекс','андрей','анна','валентин','виктор','владимир','галин','дар','евгений','екатерин',
         'елен','иван','игор','камил','колмогорц','константин','ксения','лиди','людмил','максим',
@@ -339,6 +337,10 @@
         } catch (_) {}
       }
 
+      function fixDoubleSpaces(text) {
+        return text.replace(/\s{2,}/g, '. ');
+      }
+
       function capitalizeAfterPunctuation(text) {
         return text.replace(/([.!?])\s*([а-яё])/gi, (match, punct, letter) => {
           return punct + ' ' + letter.toUpperCase();
@@ -358,6 +360,7 @@
         let result = text.trim();
         result = result.charAt(0).toUpperCase() + result.slice(1);
         result = insertDotsBeforeUppercase(result);
+        result = fixDoubleSpaces(result);
         const lastChar = result[result.length - 1];
         if (lastChar && !['.', '!', '?'].includes(lastChar)) result += '.';
         result = capitalizeAfterPunctuation(result);
@@ -377,9 +380,9 @@
           const isLive = block.live || false;
           const langLabel = LANG_NAMES[block.currentLang] || '🇷🇺';
 
-          let borderColor = '#4CAF50'; // зелёный по умолчанию
-          if (block.currentLang === 'en') borderColor = '#2196F3'; // синий
-          if (block.currentLang === 'tr') borderColor = '#f44336'; // красный
+          let borderColor = '#4CAF50';
+          if (block.currentLang === 'en') borderColor = '#2196F3';
+          if (block.currentLang === 'tr') borderColor = '#f44336';
 
           const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}`;
           html += `
@@ -414,7 +417,6 @@
         saveToStorage();
       }
 
-      // ===================== СВАЙПЫ (переводы) =====================
       function onTouchStart(e) {
         const touch = e.touches[0];
         swipeState.startX = touch.clientX;
@@ -522,7 +524,6 @@
         mouseSwipeState.currentElement = null;
       });
 
-      // ===================== ОСНОВНАЯ ЛОГИКА ПЕРЕВОДОВ =====================
       async function handleSwipeLeft(index) {
         const block = blocksData[index];
         if (!block || block.live) return;
@@ -603,7 +604,6 @@
         }
       }
 
-      // ===================== ОСТАЛЬНЫЕ ФУНКЦИИ =====================
       function updateButtons() {
         const hasBlocks = blocksData.filter(b => !b.live).length > 0;
         if (hasBlocks) {
@@ -652,7 +652,9 @@
 
       function updateLiveBlock() {
         if (liveBlockIndex >= 0 && blocksData[liveBlockIndex]) {
-          blocksData[liveBlockIndex].text = accumulatedText || ' ';
+          let text = accumulatedText || ' ';
+          text = fixDoubleSpaces(text);
+          blocksData[liveBlockIndex].text = text;
           blocksData[liveBlockIndex].collapsed = false;
           renderBlocks();
           scrollToBottom();
