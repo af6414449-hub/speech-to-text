@@ -42,6 +42,8 @@
       cursor: pointer;
       transition: 0.2s;
       border-left: 4px solid #4CAF50;
+      position: relative;
+      touch-action: none;
     }
     .block:active { background: #e9ecef; }
     .block.collapsed .block-text { 
@@ -74,6 +76,35 @@
     }
     .block.live .block-time {
       color: #ff9800;
+    }
+    .block .swipe-hint {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: #999;
+      opacity: 0;
+      transition: 0.3s;
+      pointer-events: none;
+    }
+    .block .swipe-hint.left {
+      left: -60px;
+    }
+    .block .swipe-hint.right {
+      right: -60px;
+    }
+    .block.swiping-left .swipe-hint.left {
+      opacity: 1;
+    }
+    .block.swiping-right .swipe-hint.right {
+      opacity: 1;
+    }
+    .block.fixed {
+      border-left-color: #2196F3;
+      background: #e3f2fd;
+    }
+    .block.fixed .block-time::after {
+      content: ' ✨';
     }
     .buttons {
       display: flex;
@@ -210,6 +241,15 @@
       let liveText = '';
       let liveBlockIndex = -1;
 
+      // --- Swipe state ---
+      let swipeState = {
+        startX: 0,
+        startY: 0,
+        isSwiping: false,
+        currentElement: null,
+        currentIndex: -1
+      };
+
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
         toast.textContent = '❌ Браузер не поддерживает';
@@ -232,7 +272,6 @@
           ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
       }
 
-      // --- localStorage ---
       function saveToStorage() {
         try {
           const data = blocksData.filter(b => !b.live);
@@ -248,14 +287,14 @@
             blocksData = blocksData.map(b => ({
               ...b,
               collapsed: b.collapsed !== undefined ? b.collapsed : true,
-              live: false
+              live: false,
+              originalText: b.originalText || b.text
             }));
             renderBlocks();
           }
         } catch (_) {}
       }
 
-      // --- Render ---
       function renderBlocks() {
         if (blocksData.length === 0) {
           blocksEl.innerHTML = '';
@@ -267,15 +306,20 @@
         blocksData.forEach((block, index) => {
           const isCollapsed = block.collapsed !== false;
           const isLive = block.live || false;
+          const isFixed = block.fixed || false;
+          const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''} ${isFixed ? 'fixed' : ''}`;
           html += `
-            <div class="block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}" data-index="${index}">
+            <div class="${blockClass}" data-index="${index}">
               <div class="block-text">${escapeHtml(block.text)}</div>
               <span class="block-time">${block.time}</span>
+              <span class="swipe-hint left">← исправить</span>
+              <span class="swipe-hint right">вернуть →</span>
             </div>
           `;
         });
         blocksEl.innerHTML = html;
 
+        // Обработчики кликов (сворачивание/разворачивание)
         document.querySelectorAll('.block').forEach(el => {
           el.addEventListener('click', function(e) {
             const idx = parseInt(this.dataset.index);
@@ -287,9 +331,165 @@
           });
         });
 
+        // Обработчики свайпов
+        document.querySelectorAll('.block').forEach(el => {
+          el.addEventListener('touchstart', onTouchStart, { passive: true });
+          el.addEventListener('touchmove', onTouchMove, { passive: false });
+          el.addEventListener('touchend', onTouchEnd, { passive: true });
+        });
+
         updateButtons();
         blocksEl.scrollTop = blocksEl.scrollHeight;
         saveToStorage();
+      }
+
+      // --- Swipe handlers ---
+      function onTouchStart(e) {
+        const touch = e.touches[0];
+        swipeState.startX = touch.clientX;
+        swipeState.startY = touch.clientY;
+        swipeState.isSwiping = false;
+        swipeState.currentElement = this;
+        swipeState.currentIndex = parseInt(this.dataset.index);
+        this.classList.remove('swiping-left', 'swiping-right');
+      }
+
+      function onTouchMove(e) {
+        if (!swipeState.currentElement) return;
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - swipeState.startX;
+        const deltaY = touch.clientY - swipeState.startY;
+
+        // Если движение больше по вертикали — не свайп
+        if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) {
+          swipeState.isSwiping = false;
+          return;
+        }
+
+        swipeState.isSwiping = true;
+        e.preventDefault();
+
+        const el = swipeState.currentElement;
+        const threshold = 60;
+
+        if (deltaX < -threshold) {
+          el.classList.add('swiping-left');
+          el.classList.remove('swiping-right');
+        } else if (deltaX > threshold) {
+          el.classList.add('swiping-right');
+          el.classList.remove('swiping-left');
+        } else {
+          el.classList.remove('swiping-left', 'swiping-right');
+        }
+      }
+
+      function onTouchEnd(e) {
+        if (!swipeState.currentElement) return;
+        const el = swipeState.currentElement;
+        const index = swipeState.currentIndex;
+
+        el.classList.remove('swiping-left', 'swiping-right');
+
+        if (!swipeState.isSwiping) {
+          // Клик — обрабатывается отдельно через click
+          swipeState.isSwiping = false;
+          swipeState.currentElement = null;
+          return;
+        }
+
+        const touch = e.changedTouches[0];
+        const deltaX = touch.clientX - swipeState.startX;
+        const threshold = 50;
+
+        if (deltaX < -threshold) {
+          // Свайп влево → исправить
+          fixBlock(index);
+        } else if (deltaX > threshold) {
+          // Свайп вправо → восстановить
+          restoreBlock(index);
+        }
+
+        swipeState.isSwiping = false;
+        swipeState.currentElement = null;
+      }
+
+      // --- Исправление блока через LanguageTool ---
+      async function fixBlock(index) {
+        const block = blocksData[index];
+        if (!block || block.live) return;
+        if (block.fixed) {
+          showToast('Блок уже исправлен');
+          return;
+        }
+
+        // Сохраняем оригинал
+        if (!block.originalText) {
+          block.originalText = block.text;
+        }
+
+        const text = block.text;
+        showToast('🔍 Исправление...');
+
+        try {
+          const response = await fetch('https://api.languagetool.org/v2/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              text: text,
+              language: 'ru-RU',
+              enabledOnly: 'false'
+            })
+          });
+
+          const data = await response.json();
+          
+          if (data.matches && data.matches.length > 0) {
+            // Применяем исправления
+            let fixedText = text;
+            // Сортируем исправления по позиции (с конца, чтобы не сбивать индексы)
+            const matches = data.matches.sort((a, b) => b.offset - a.offset);
+            
+            for (const match of matches) {
+              if (match.replacements && match.replacements.length > 0) {
+                const replacement = match.replacements[0].value;
+                const start = match.offset;
+                const end = match.offset + match.length;
+                fixedText = fixedText.substring(0, start) + replacement + fixedText.substring(end);
+              }
+            }
+
+            if (fixedText !== text) {
+              block.text = fixedText;
+              block.fixed = true;
+              renderBlocks();
+              saveToStorage();
+              showToast('✅ Блок исправлен');
+            } else {
+              showToast('ℹ️ Исправления не найдены');
+            }
+          } else {
+            showToast('ℹ️ Исправления не найдены');
+          }
+        } catch (error) {
+          console.error('LanguageTool error:', error);
+          showToast('❌ Ошибка при исправлении');
+        }
+      }
+
+      // --- Восстановление оригинального текста ---
+      function restoreBlock(index) {
+        const block = blocksData[index];
+        if (!block || block.live) return;
+        if (!block.originalText || block.text === block.originalText) {
+          showToast('ℹ️ Нет изменений для восстановления');
+          return;
+        }
+
+        block.text = block.originalText;
+        block.fixed = false;
+        renderBlocks();
+        saveToStorage();
+        showToast('↩️ Восстановлен оригинал');
       }
 
       function escapeHtml(text) {
@@ -321,12 +521,16 @@
         if (!live && !text.trim()) return;
         if (live && text === undefined) text = ' ';
         
-        blocksData.push({
+        const block = {
           text: text,
           time: live ? '...' : getFullTimestamp(),
           collapsed: !live,
-          live: live
-        });
+          live: live,
+          fixed: false,
+          originalText: text
+        };
+        
+        blocksData.push(block);
         renderBlocks();
         saveToStorage();
         return blocksData.length - 1;
@@ -338,7 +542,6 @@
           blocksData[liveBlockIndex].text = text || ' ';
           blocksData[liveBlockIndex].collapsed = false;
           renderBlocks();
-          // Не сохраняем живой блок в localStorage
         }
       }
 
