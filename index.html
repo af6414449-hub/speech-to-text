@@ -51,7 +51,9 @@
       user-select: none;
       -webkit-user-select: none;
       color: #e8e8e8;
+      transition: background 0.2s;
     }
+    .block:active { background: #3a3a3a; }
     .block.live {
       background: #2d241a;
     }
@@ -134,29 +136,31 @@
       box-shadow: 0 2px 8px rgba(255,23,68,0.3);
     }
     .btn-clear:disabled { box-shadow: none; }
-    .btn-copy {
-      width: 56px;
-      height: 56px;
-      font-size: 24px;
-      background: #3a3a3a;
-      color: #999;
-    }
-    .btn-copy.active {
-      background: #f9a825;
-      color: #1a1a1a;
-      box-shadow: 0 2px 8px rgba(249,168,37,0.3);
-    }
     .btn-save {
       width: 56px;
       height: 56px;
       font-size: 24px;
       background: #3a3a3a;
       color: #999;
+      order: 0;
     }
     .btn-save.active {
       background: #42a5f5;
       color: #1a1a1a;
       box-shadow: 0 2px 8px rgba(66,165,245,0.3);
+    }
+    .btn-copy {
+      width: 56px;
+      height: 56px;
+      font-size: 24px;
+      background: #3a3a3a;
+      color: #999;
+      order: 1;
+    }
+    .btn-copy.active {
+      background: #f9a825;
+      color: #1a1a1a;
+      box-shadow: 0 2px 8px rgba(249,168,37,0.3);
     }
     .btn-record {
       width: 80px;
@@ -165,6 +169,7 @@
       background: #4CAF50;
       color: #1a1a1a;
       box-shadow: 0 4px 12px rgba(76,175,80,0.3);
+      order: 2;
     }
     .btn-record.active {
       background: #f44336;
@@ -194,8 +199,8 @@
     <div class="blocks" id="blocks"></div>
     <div class="buttons">
       <button class="btn-clear" id="clear" disabled>✕</button>
-      <button class="btn-copy" id="copy" disabled>📄</button>
       <button class="btn-save" id="save" disabled>💾</button>
+      <button class="btn-copy" id="copy" disabled>📄</button>
       <button class="btn-record" id="record">▶</button>
     </div>
   </div>
@@ -220,6 +225,10 @@
       let swipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
       let mouseSwipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
 
+      // Долгое нажатие
+      let longPressTimer = null;
+      let longPressTriggered = false;
+
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
         toast.textContent = '❌ Браузер не поддерживает';
@@ -231,6 +240,23 @@
       const LANG_CHAIN = ['ru', 'en', 'tr'];
       const LANG_NAMES = { ru: '🇷🇺', en: '🇬🇧', tr: '🇹🇷' };
 
+      // ===================== ВОПРОСИТЕЛЬНЫЕ СЛОВА =====================
+      const questionWords = [
+        'как', 'где', 'когда', 'почему', 'зачем', 'откуда', 'куда',
+        'сколько', 'чей', 'чья', 'чье', 'чьи', 'кто', 'что',
+        'какой', 'какая', 'какое', 'какие', 'который', 'которая', 'которое', 'которые'
+      ];
+
+      function startsWithQuestion(text) {
+        if (!text) return false;
+        const trimmed = text.trim().toLowerCase();
+        for (const word of questionWords) {
+          if (trimmed.startsWith(word + ' ') || trimmed === word) return true;
+        }
+        return false;
+      }
+
+      // ===================== ПЕРЕВОДЫ =====================
       async function translateText(text, targetLang) {
         if (!text || !text.trim()) return text;
         try {
@@ -361,7 +387,13 @@
         result = insertDotsBeforeUppercase(result);
         result = fixDoubleSpaces(result);
         const lastChar = result[result.length - 1];
-        if (lastChar && !['.', '!', '?'].includes(lastChar)) result += '.';
+        if (lastChar && !['.', '!', '?'].includes(lastChar)) {
+          if (startsWithQuestion(result)) {
+            result += '?';
+          } else {
+            result += '.';
+          }
+        }
         result = capitalizeAfterPunctuation(result);
         return result;
       }
@@ -381,7 +413,7 @@
 
           let borderColor = '#4CAF50';
           if (isLive) {
-            borderColor = '#ff9800'; // оранжевый для живого блока
+            borderColor = '#ff9800';
           } else {
             if (block.currentLang === 'en') borderColor = '#2196F3';
             if (block.currentLang === 'tr') borderColor = '#f44336';
@@ -402,13 +434,44 @@
         document.querySelectorAll('.block').forEach(el => {
           const idx = parseInt(el.dataset.index);
 
+          // ========== ДОЛГОЕ НАЖАТИЕ ==========
+          el.addEventListener('pointerdown', function(e) {
+            longPressTriggered = false;
+            longPressTimer = setTimeout(() => {
+              longPressTriggered = true;
+              const block = blocksData[idx];
+              if (block && !block.live) {
+                if (confirm('Удалить этот блок?')) {
+                  blocksData.splice(idx, 1);
+                  renderBlocks();
+                  saveToStorage();
+                  showToast('🗑 Блок удалён');
+                }
+              }
+            }, 1000);
+          });
+
+          el.addEventListener('pointerup', function() {
+            clearTimeout(longPressTimer);
+          });
+
+          el.addEventListener('pointerleave', function() {
+            clearTimeout(longPressTimer);
+          });
+
+          // ========== КЛИК (сворачивание) ==========
           el.addEventListener('click', function(e) {
+            if (longPressTriggered) {
+              longPressTriggered = false;
+              return;
+            }
             if (!blocksData[idx] || blocksData[idx].live) return;
             blocksData[idx].collapsed = !blocksData[idx].collapsed;
             renderBlocks();
             saveToStorage();
           });
 
+          // ========== СВАЙПЫ ==========
           el.addEventListener('touchstart', onTouchStart, { passive: true });
           el.addEventListener('touchmove', onTouchMove, { passive: false });
           el.addEventListener('touchend', onTouchEnd, { passive: true });
@@ -420,6 +483,7 @@
         saveToStorage();
       }
 
+      // ========== СВАЙПЫ ==========
       function onTouchStart(e) {
         const touch = e.touches[0];
         swipeState.startX = touch.clientX;
@@ -527,6 +591,7 @@
         mouseSwipeState.currentElement = null;
       });
 
+      // ========== ОСНОВНАЯ ЛОГИКА ПЕРЕВОДОВ ==========
       async function handleSwipeLeft(index) {
         const block = blocksData[index];
         if (!block || block.live) return;
