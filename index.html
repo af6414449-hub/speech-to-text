@@ -75,12 +75,6 @@
     .block.live .block-time {
       color: #ff9800;
     }
-    .empty-state {
-      color: #bbb;
-      text-align: center;
-      font-size: 16px;
-      margin-top: 40px;
-    }
     .buttons {
       display: flex;
       align-items: center;
@@ -348,6 +342,7 @@
           };
 
           recognition.onend = function() {
+            // Если запись ещё идёт — просто перезапускаем, блок не трогаем
             if (isRecording && !recognition._manualStop) {
               clearTimeout(restartTimer);
               restartTimer = setTimeout(() => {
@@ -356,10 +351,12 @@
                 }
               }, 300);
             } else {
+              // Финальная остановка: превращаем оранжевый в зелёный
               isRecording = false;
               recognition._manualStop = false;
               
               if (liveBlockIndex >= 0) {
+                // Удаляем оранжевый
                 blocksData.splice(liveBlockIndex, 1);
                 liveBlockIndex = -1;
               }
@@ -382,7 +379,10 @@
         recordBtn.textContent = '■';
         recordBtn.className = 'btn-record active';
 
-        liveBlockIndex = addBlock(' ', true);
+        // Создаём оранжевый блок, если его нет
+        if (liveBlockIndex === -1) {
+          liveBlockIndex = addBlock(' ', true);
+        }
         renderBlocks();
 
         try { recognition.start(); } catch(_) {}
