@@ -106,6 +106,26 @@
     }
     .btn-clear:active { transform: scale(0.9); }
     .btn-clear:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-copy {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      background: #e0e0e0;
+      color: #999;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-copy:active { transform: scale(0.9); }
+    .btn-copy.active {
+      background: #9c27b0;
+      color: white;
+    }
+    .btn-copy:disabled { opacity: 0.3; cursor: not-allowed; }
     .btn-save {
       width: 56px;
       height: 56px;
@@ -170,6 +190,7 @@
     <div class="blocks" id="blocks"></div>
     <div class="buttons">
       <button class="btn-clear" id="clear" disabled>✕</button>
+      <button class="btn-copy" id="copy" disabled>📄</button>
       <button class="btn-save" id="save" disabled>💾</button>
       <button class="btn-record" id="record">▶</button>
     </div>
@@ -181,6 +202,7 @@
       const blocksEl = document.getElementById('blocks');
       const recordBtn = document.getElementById('record');
       const saveBtn = document.getElementById('save');
+      const copyBtn = document.getElementById('copy');
       const clearBtn = document.getElementById('clear');
       const toast = document.getElementById('toast');
 
@@ -257,11 +279,15 @@
         if (hasBlocks) {
           saveBtn.disabled = false;
           saveBtn.className = 'btn-save active';
+          copyBtn.disabled = false;
+          copyBtn.className = 'btn-copy active';
           clearBtn.disabled = false;
           clearBtn.className = 'btn-clear';
         } else {
           saveBtn.disabled = true;
           saveBtn.className = 'btn-save';
+          copyBtn.disabled = true;
+          copyBtn.className = 'btn-copy';
           clearBtn.disabled = true;
           clearBtn.className = 'btn-clear';
         }
@@ -373,6 +399,25 @@
         else startRec();
       }
 
+      function getFullText() {
+        const realBlocks = blocksData.filter(b => !b.live);
+        if (realBlocks.length === 0) return '';
+        return realBlocks.map(b => b.text).join('\n\n');
+      }
+
+      function copyText() {
+        const text = getFullText();
+        if (!text) {
+          showToast('❌ Нет текста');
+          return;
+        }
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('✅ Скопировано в буфер');
+        }).catch(() => {
+          showToast('❌ Ошибка копирования');
+        });
+      }
+
       function saveFile() {
         const realBlocks = blocksData.filter(b => !b.live);
         if (realBlocks.length === 0) {
@@ -380,12 +425,8 @@
           return;
         }
 
-        const text = realBlocks.map(b => b.text).join('\n\n');
-
-        if (!text.trim()) {
-          showToast('❌ Нет текста');
-          return;
-        }
+        // Формируем текст с таймкодами
+        const text = realBlocks.map(b => `${b.time}  ${b.text}`).join('\n\n');
 
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
@@ -434,6 +475,7 @@
 
       recordBtn.addEventListener('click', toggleRec);
       saveBtn.addEventListener('click', saveFile);
+      copyBtn.addEventListener('click', copyText);
       clearBtn.addEventListener('click', clearAll);
 
       document.addEventListener('keydown', (e) => {
