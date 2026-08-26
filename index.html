@@ -167,9 +167,7 @@
 </head>
 <body>
   <div class="app">
-    <div class="blocks" id="blocks">
-      <div class="empty-state">Нажмите ▶ и говорите</div>
-    </div>
+    <div class="blocks" id="blocks"></div>
     <div class="buttons">
       <button class="btn-clear" id="clear" disabled>✕</button>
       <button class="btn-save" id="save" disabled>💾</button>
@@ -180,24 +178,24 @@
 
   <script>
     (function() {
-      const blocks = document.getElementById('blocks');
-      const record = document.getElementById('record');
-      const save = document.getElementById('save');
-      const clear = document.getElementById('clear');
+      const blocksEl = document.getElementById('blocks');
+      const recordBtn = document.getElementById('record');
+      const saveBtn = document.getElementById('save');
+      const clearBtn = document.getElementById('clear');
       const toast = document.getElementById('toast');
 
       let isRecording = false;
-      let finalText = '';
       let blocksData = [];
       let recognition = null;
       let restartTimer = null;
-      let lastProcessedText = '';
+      let liveText = '';
+      let liveBlockIndex = -1;
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
         toast.textContent = '❌ Браузер не поддерживает';
         toast.classList.add('show');
-        record.disabled = true;
+        recordBtn.disabled = true;
         return;
       }
 
@@ -216,7 +214,7 @@
 
       function renderBlocks() {
         if (blocksData.length === 0) {
-          blocks.innerHTML = '<div class="empty-state">Нажмите ▶ и говорите</div>';
+          blocksEl.innerHTML = '';
           updateButtons();
           return;
         }
@@ -232,7 +230,7 @@
             </div>
           `;
         });
-        blocks.innerHTML = html;
+        blocksEl.innerHTML = html;
 
         document.querySelectorAll('.block').forEach(el => {
           el.addEventListener('click', function(e) {
@@ -245,7 +243,7 @@
         });
 
         updateButtons();
-        blocks.scrollTop = blocks.scrollHeight;
+        blocksEl.scrollTop = blocksEl.scrollHeight;
       }
 
       function escapeHtml(text) {
@@ -257,15 +255,15 @@
       function updateButtons() {
         const hasBlocks = blocksData.filter(b => !b.live).length > 0;
         if (hasBlocks) {
-          save.disabled = false;
-          save.className = 'btn-save active';
-          clear.disabled = false;
-          clear.className = 'btn-clear';
+          saveBtn.disabled = false;
+          saveBtn.className = 'btn-save active';
+          clearBtn.disabled = false;
+          clearBtn.className = 'btn-clear';
         } else {
-          save.disabled = true;
-          save.className = 'btn-save';
-          clear.disabled = true;
-          clear.className = 'btn-clear';
+          saveBtn.disabled = true;
+          saveBtn.className = 'btn-save';
+          clearBtn.disabled = true;
+          clearBtn.className = 'btn-clear';
         }
       }
 
@@ -277,35 +275,35 @@
           collapsed: !live,
           live: live
         });
-        if (!live) {
-          finalText = '';
-          lastProcessedText = '';
-        }
         renderBlocks();
+        return blocksData.length - 1;
       }
 
-      // ГЛАВНОЕ: дедупликация текста через setInterval
+      function updateLiveBlock(text) {
+        liveText = text;
+        if (liveBlockIndex >= 0 && blocksData[liveBlockIndex]) {
+          blocksData[liveBlockIndex].text = text || ' ';
+          blocksData[liveBlockIndex].collapsed = false;
+          renderBlocks();
+        }
+      }
+
       function startRec() {
         if (isRecording) return;
+
         if (!recognition) {
           recognition = new SpeechRecognition();
           recognition.lang = 'ru-RU';
           recognition.continuous = true;
           recognition.interimResults = true;
 
-          // Собираем все результаты в одну строку
-          let fullText = '';
-
           recognition.onresult = function(e) {
-            let newText = '';
+            let text = '';
             for (let i = e.resultIndex; i < e.results.length; i++) {
-              newText += e.results[i][0].transcript;
+              text += e.results[i][0].transcript;
             }
-            // Сохраняем только если текст изменился
-            if (newText && newText !== lastProcessedText) {
-              fullText += newText;
-              lastProcessedText = newText;
-              updateLiveBlock(fullText);
+            if (text.trim()) {
+              updateLiveBlock(text);
             }
           };
 
@@ -330,57 +328,44 @@
             } else {
               isRecording = false;
               recognition._manualStop = false;
-              // Сохраняем финальный текст как блок
-              blocksData = blocksData.filter(b => !b.live);
-              if (finalText.trim()) {
-                addBlock(finalText, false);
+              
+              if (liveBlockIndex >= 0) {
+                blocksData.splice(liveBlockIndex, 1);
+                liveBlockIndex = -1;
               }
+              
+              if (liveText.trim()) {
+                addBlock(liveText, false);
+                liveText = '';
+              }
+              
               renderBlocks();
+              recordBtn.textContent = '▶';
+              recordBtn.className = 'btn-record';
             }
           };
         }
 
         isRecording = true;
         recognition._manualStop = false;
-        finalText = '';
-        lastProcessedText = '';
-        record.textContent = '■';
-        record.className = 'btn-record active';
+        liveText = '';
+        recordBtn.textContent = '■';
+        recordBtn.className = 'btn-record active';
 
-        // Создаём живой блок
-        blocksData.push({
-          text: '',
-          time: '...',
-          collapsed: false,
-          live: true
-        });
+        liveBlockIndex = addBlock(' ', true);
         renderBlocks();
 
         try { recognition.start(); } catch(_) {}
       }
 
-      function updateLiveBlock(text) {
-        finalText = text;
-        // Находим последний живой блок
-        for (let i = blocksData.length - 1; i >= 0; i--) {
-          if (blocksData[i].live) {
-            blocksData[i].text = text;
-            blocksData[i].collapsed = false;
-            renderBlocks();
-            return;
-          }
-        }
-      }
-
       function stopRec() {
+        if (!isRecording) return;
         isRecording = false;
         if (recognition) {
           recognition._manualStop = true;
           clearTimeout(restartTimer);
           try { recognition.stop(); } catch(_) {}
         }
-        record.textContent = '▶';
-        record.className = 'btn-record';
       }
 
       function toggleRec() {
@@ -439,18 +424,17 @@
         if (confirm('Очистить все блоки?')) {
           blocksData = blocksData.filter(b => b.live);
           if (blocksData.length > 0 && blocksData[0].live) {
-            blocksData[0].text = '';
-            finalText = '';
+            blocksData[0].text = ' ';
+            liveText = '';
           }
           renderBlocks();
           showToast('🗑 Очищено');
         }
       }
 
-      // --- События ---
-      record.addEventListener('click', toggleRec);
-      save.addEventListener('click', saveFile);
-      clear.addEventListener('click', clearAll);
+      recordBtn.addEventListener('click', toggleRec);
+      saveBtn.addEventListener('click', saveFile);
+      clearBtn.addEventListener('click', clearAll);
 
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
