@@ -425,20 +425,41 @@
     let longPressTriggered = false;
     let saveBtnPressTimer = null;
 
-    // ===================== ОЗВУЧКА (только Google TTS) =====================
+    // ===================== ОЗВУЧКА =====================
     let audioContext = null;
     let currentAudioSource = null;
     let currentSpeakingBlock = null;
 
     const VOICE_MAP = {
-      ru: 'ru',
-      en: 'en',
-      es: 'es',
-      tr: 'tr'
+      ru: 'ru-RU-SvetlanaNeural',
+      en: 'en-US-JennyNeural',
+      es: 'es-ES-ElviraNeural',
+      tr: 'tr-TR-EmelNeural'
     };
 
     async function getTTSAudio(text, lang) {
-      const tl = VOICE_MAP[lang] || 'ru';
+      const voice = VOICE_MAP[lang] || VOICE_MAP.ru;
+
+      // Пробуем Edge TTS сначала
+      try {
+        const url = `https://api.edge-tts.workers.dev/tts?text=${encodeURIComponent(text)}&voice=${voice}`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          if (arrayBuffer.byteLength > 100) {
+            return arrayBuffer;
+          }
+        }
+      } catch (_) {}
+
+      // Бэкап: Google Translate TTS
+      console.warn('Edge TTS не ответил, используем Google Translate TTS');
+      return await getGoogleTTSAudio(text, lang);
+    }
+
+    async function getGoogleTTSAudio(text, lang) {
+      const langMap = { ru: 'ru', en: 'en', es: 'es', tr: 'tr' };
+      const tl = langMap[lang] || 'ru';
       const maxChunk = 100;
       const chunks = splitText(text, maxChunk);
       const audioBuffers = [];
