@@ -5,8 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Диктофон</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; overflow: hidden; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+    }
     body {
       background: #0d0d0d;
       display: flex;
@@ -26,7 +34,8 @@
       display: flex;
       flex-direction: column;
       position: relative;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
     }
     .blocks {
       flex: 1 1 auto;
@@ -53,12 +62,18 @@
       -webkit-user-select: none;
       color: #e8e8e8;
       flex-shrink: 0;
+      transition: background 0.15s;
+      touch-action: pan-y;
     }
-    .block:active { background: #3a3a3a; }
+    .block:active {
+      background: #3a3a3a;
+    }
     .block.live {
       background: #2d241a;
     }
-    .block.live .block-time { color: #ff9800; }
+    .block.live .block-time {
+      color: #ff9800;
+    }
     .block.collapsed .block-text {
       display: -webkit-box;
       -webkit-line-clamp: 1;
@@ -97,10 +112,18 @@
       transition: 0.3s;
       pointer-events: none;
     }
-    .block .swipe-hint.left { left: -60px; }
-    .block .swipe-hint.right { right: -60px; }
-    .block.swiping-left .swipe-hint.left { opacity: 1; }
-    .block.swiping-right .swipe-hint.right { opacity: 1; }
+    .block .swipe-hint.left {
+      left: -60px;
+    }
+    .block .swipe-hint.right {
+      right: -60px;
+    }
+    .block.swiping-left .swipe-hint.left {
+      opacity: 1;
+    }
+    .block.swiping-right .swipe-hint.right {
+      opacity: 1;
+    }
     .buttons {
       display: flex;
       align-items: center;
@@ -110,7 +133,10 @@
       border-top: 1px solid #2a2a2a;
       flex-shrink: 0;
     }
-    .btn-clear, .btn-copy, .btn-save, .btn-record {
+    .btn-clear,
+    .btn-copy,
+    .btn-save,
+    .btn-record {
       border: none;
       border-radius: 50%;
       cursor: pointer;
@@ -122,8 +148,15 @@
       user-select: none;
       -webkit-user-select: none;
     }
-    .btn-clear:active, .btn-copy:active, .btn-save:active, .btn-record:active { transform: scale(0.9); }
-    .btn-clear:disabled, .btn-copy:disabled, .btn-save:disabled {
+    .btn-clear:active,
+    .btn-copy:active,
+    .btn-save:active,
+    .btn-record:active {
+      transform: scale(0.9);
+    }
+    .btn-clear:disabled,
+    .btn-copy:disabled,
+    .btn-save:disabled {
       opacity: 0.3;
       cursor: not-allowed;
       transform: none;
@@ -139,7 +172,7 @@
     .btn-clear.active {
       background: #ff1744;
       color: white;
-      box-shadow: 0 2px 8px rgba(255,23,68,0.3);
+      box-shadow: 0 2px 8px rgba(255, 23, 68, 0.3);
     }
     .btn-save {
       width: 56px;
@@ -147,12 +180,11 @@
       font-size: 24px;
       background: #3a3a3a;
       color: #999;
-      order: 0;
     }
     .btn-save.active {
       background: #42a5f5;
       color: #1a1a1a;
-      box-shadow: 0 2px 8px rgba(66,165,245,0.3);
+      box-shadow: 0 2px 8px rgba(66, 165, 245, 0.3);
     }
     .btn-copy {
       width: 56px;
@@ -160,12 +192,11 @@
       font-size: 24px;
       background: #3a3a3a;
       color: #999;
-      order: 1;
     }
     .btn-copy.active {
       background: #f9a825;
       color: #1a1a1a;
-      box-shadow: 0 2px 8px rgba(249,168,37,0.3);
+      box-shadow: 0 2px 8px rgba(249, 168, 37, 0.3);
     }
     .btn-record {
       width: 80px;
@@ -173,12 +204,82 @@
       font-size: 36px;
       background: #4CAF50;
       color: #1a1a1a;
-      box-shadow: 0 4px 12px rgba(76,175,80,0.3);
-      order: 2;
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
     }
     .btn-record.active {
       background: #f44336;
-      box-shadow: 0 4px 12px rgba(244,67,54,0.3);
+      box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+    }
+    .btn-back {
+      width: 80px;
+      height: 80px;
+      font-size: 36px;
+      background: #2196F3;
+      color: white;
+      box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .btn-back:active {
+      transform: scale(0.9);
+    }
+    .long-press-menu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      touch-action: none;
+    }
+    .long-press-menu.active {
+      display: flex;
+    }
+    .long-press-menu .menu-buttons {
+      display: flex;
+      gap: 40px;
+      background: transparent;
+    }
+    .long-press-menu .menu-btn {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: none;
+      font-size: 48px;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .long-press-menu .menu-btn:active {
+      transform: scale(0.9);
+    }
+    .long-press-menu .menu-btn.delete {
+      background: #ff1744;
+      color: white;
+    }
+    .long-press-menu .menu-btn.archive {
+      background: #ffd700;
+      color: #1a1a1a;
     }
     .toast {
       position: fixed;
@@ -196,42 +297,261 @@
       white-space: nowrap;
       z-index: 1000;
     }
-    .toast.show { opacity: 1; }
+    .toast.show {
+      opacity: 1;
+    }
+
+    /* Анимация переключения экранов */
+    .screen {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      transition: transform 0.3s ease;
+      position: absolute;
+      top: 0;
+      left: 0;
+      padding: 20px;
+      background: #1a1a1a;
+      border-radius: 24px;
+    }
+    .screen.main {
+      transform: translateX(0);
+      z-index: 2;
+    }
+    .screen.archive {
+      transform: translateX(100%);
+      z-index: 1;
+    }
+    .app.archive-open .screen.main {
+      transform: translateX(-30%);
+    }
+    .app.archive-open .screen.archive {
+      transform: translateX(0);
+    }
+    .screen-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      border-radius: 24px;
+    }
+    .archive-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #2a2a2a;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+    .archive-header .title {
+      color: #e8e8e8;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .archive-header .btn-close-archive {
+      background: none;
+      border: none;
+      color: #e8e8e8;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+    .blocks-archive {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 4px 0 12px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+    .app:not(.archive-open) .screen.archive {
+      display: none;
+    }
+    .app.archive-open .screen.archive {
+      display: flex;
+    }
+    .app.archive-open .screen.main {
+      display: flex;
+    }
+    /* Кнопка назад в архиве */
+    .archive-buttons {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #2a2a2a;
+      flex-shrink: 0;
+    }
+    .archive-buttons .btn-back {
+      width: 80px;
+      height: 80px;
+      font-size: 36px;
+      background: #2196F3;
+      color: white;
+      box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .archive-buttons .btn-back:active {
+      transform: scale(0.9);
+    }
+    .archive-buttons .btn-clear,
+    .archive-buttons .btn-copy,
+    .archive-buttons .btn-save {
+      width: 56px;
+      height: 56px;
+      font-size: 24px;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .archive-buttons .btn-clear {
+      background: #3a3a3a;
+      color: #999;
+    }
+    .archive-buttons .btn-clear.active {
+      background: #ff1744;
+      color: white;
+      box-shadow: 0 2px 8px rgba(255, 23, 68, 0.3);
+    }
+    .archive-buttons .btn-copy {
+      background: #3a3a3a;
+      color: #999;
+    }
+    .archive-buttons .btn-copy.active {
+      background: #f9a825;
+      color: #1a1a1a;
+      box-shadow: 0 2px 8px rgba(249, 168, 37, 0.3);
+    }
+    .archive-buttons .btn-save {
+      background: #3a3a3a;
+      color: #999;
+    }
+    .archive-buttons .btn-save.active {
+      background: #42a5f5;
+      color: #1a1a1a;
+      box-shadow: 0 2px 8px rgba(66, 165, 245, 0.3);
+    }
+    .archive-buttons .btn-back {
+      order: 2;
+    }
+    .archive-buttons .btn-clear {
+      order: 0;
+    }
+    .archive-buttons .btn-copy {
+      order: 1;
+    }
+    .archive-buttons .btn-save {
+      order: 0;
+    }
+    /* Чтобы кнопки не разъезжались */
+    .archive-buttons .btn-clear,
+    .archive-buttons .btn-copy,
+    .archive-buttons .btn-save {
+      flex-shrink: 0;
+    }
+    .archive-buttons .btn-back {
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="blocks" id="blocks"></div>
-    <div class="buttons">
-      <button class="btn-clear" id="clear" disabled>✕</button>
-      <button class="btn-save" id="save" disabled>💾</button>
-      <button class="btn-copy" id="copy" disabled>📄</button>
-      <button class="btn-record" id="record">▶</button>
+  <div class="app" id="app">
+    <div class="screen-wrapper">
+      <!-- ОСНОВНОЙ ЭКРАН -->
+      <div class="screen main" id="mainScreen">
+        <div class="blocks" id="blocks"></div>
+        <div class="buttons">
+          <button class="btn-clear" id="clear" disabled>✕</button>
+          <button class="btn-save" id="save" disabled>💾</button>
+          <button class="btn-copy" id="copy" disabled>📄</button>
+          <button class="btn-record" id="record">▶</button>
+        </div>
+      </div>
+
+      <!-- АРХИВНЫЙ ЭКРАН -->
+      <div class="screen archive" id="archiveScreen">
+        <div class="archive-header">
+          <span class="title">📦 Архив</span>
+          <button class="btn-close-archive" id="closeArchive">✕</button>
+        </div>
+        <div class="blocks-archive" id="blocksArchive"></div>
+        <div class="archive-buttons">
+          <button class="btn-clear" id="clearArchive" disabled>✕</button>
+          <button class="btn-save" id="saveArchive" disabled>💾</button>
+          <button class="btn-copy" id="copyArchive" disabled>📄</button>
+          <button class="btn-back" id="backFromArchive">◀</button>
+        </div>
+      </div>
     </div>
+
+    <!-- МЕНЮ ДОЛГОГО НАЖАТИЯ -->
+    <div class="long-press-menu" id="longPressMenu">
+      <div class="menu-buttons">
+        <button class="menu-btn delete" id="menuDelete">✕</button>
+        <button class="menu-btn archive" id="menuArchive">⭐</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
   </div>
-  <div class="toast" id="toast"></div>
 
   <script>
     (function() {
+      const app = document.getElementById('app');
       const blocksEl = document.getElementById('blocks');
+      const blocksArchiveEl = document.getElementById('blocksArchive');
       const recordBtn = document.getElementById('record');
       const saveBtn = document.getElementById('save');
       const copyBtn = document.getElementById('copy');
       const clearBtn = document.getElementById('clear');
+      const saveArchiveBtn = document.getElementById('saveArchive');
+      const copyArchiveBtn = document.getElementById('copyArchive');
+      const clearArchiveBtn = document.getElementById('clearArchive');
+      const backFromArchiveBtn = document.getElementById('backFromArchive');
+      const closeArchiveBtn = document.getElementById('closeArchive');
       const toast = document.getElementById('toast');
+      const longPressMenu = document.getElementById('longPressMenu');
+      const menuDelete = document.getElementById('menuDelete');
+      const menuArchive = document.getElementById('menuArchive');
 
       let isRecording = false;
       let blocksData = [];
+      let archiveData = [];
       let recognition = null;
       let restartTimer = null;
       let accumulatedText = '';
       let liveBlockIndex = -1;
 
+      // Swipe state
       let swipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
       let mouseSwipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
-
       let longPressTimer = null;
       let longPressTriggered = false;
+      let longPressTarget = null;
+      let isArchiveMode = false;
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -243,7 +563,6 @@
 
       const LANG_CHAIN = ['ru', 'en', 'tr'];
       const LANG_NAMES = { ru: '🇷🇺', en: '🇬🇧', tr: '🇹🇷' };
-
       const questionWords = [
         'как', 'где', 'когда', 'почему', 'зачем', 'откуда', 'куда',
         'сколько', 'чей', 'чья', 'чье', 'чьи', 'кто', 'что',
@@ -290,19 +609,19 @@
       }
 
       const properNounsRoots = [
-        'алекс','андрей','анна','валентин','виктор','владимир','галин','дар','евгений','екатерин',
-        'елен','иван','игор','камил','колмогорц','константин','ксения','лиди','людмил','максим',
-        'михаил','надежд','николай','ольг','павел','петр','ромашенк','светлан','сергей','татьян',
-        'шлягин','юрий','яков',
-        'америк','англи','аргентин','белорус','бельги','болгар','бразили','венгр','вьетнам','герман',
-        'греци','грузин','египет','инди','испан','итали','казахстан','кипр','китай','колумби',
-        'коре','латви','литв','мексик','молдов','нидерланд','норвег','польш','португали','росси',
-        'румын','серби','словак','словен','сша','таиланд','турци','украин','финлянди','франци',
-        'хорват','черногори','чехи','чили','швейцар','швеци','эстон','южно-африк','япони',
-        'анкет','биометр','виз','документ','загран','консульств','миграцион','мультивиз',
-        'паспорт','подач','посольств','регистраци','собеседовани','туризм','шенген',
-        'администраци','министерств','посольств','президент','правительств','программ',
-        'автономн','аттестаци','возврат','двт','задвигать','родители','челябин'
+        'алекс', 'андрей', 'анна', 'валентин', 'виктор', 'владимир', 'галин', 'дар', 'евгений', 'екатерин',
+        'елен', 'иван', 'игор', 'камил', 'колмогорц', 'константин', 'ксения', 'лиди', 'людмил', 'максим',
+        'михаил', 'надежд', 'николай', 'ольг', 'павел', 'петр', 'ромашенк', 'светлан', 'сергей', 'татьян',
+        'шлягин', 'юрий', 'яков',
+        'америк', 'англи', 'аргентин', 'белорус', 'бельги', 'болгар', 'бразили', 'венгр', 'вьетнам', 'герман',
+        'греци', 'грузин', 'египет', 'инди', 'испан', 'итали', 'казахстан', 'кипр', 'китай', 'колумби',
+        'коре', 'латви', 'литв', 'мексик', 'молдов', 'нидерланд', 'норвег', 'польш', 'португали', 'росси',
+        'румын', 'серби', 'словак', 'словен', 'сша', 'таиланд', 'турци', 'украин', 'финлянди', 'франци',
+        'хорват', 'черногори', 'чехи', 'чили', 'швейцар', 'швеци', 'эстон', 'южно-африк', 'япони',
+        'анкет', 'биометр', 'виз', 'документ', 'загран', 'консульств', 'миграцион', 'мультивиз',
+        'паспорт', 'подач', 'посольств', 'регистраци', 'собеседовани', 'туризм', 'шенген',
+        'администраци', 'министерств', 'посольств', 'президент', 'правительств', 'программ',
+        'автономн', 'аттестаци', 'возврат', 'двт', 'задвигать', 'родители', 'челябин'
       ];
 
       function isProperNoun(word) {
@@ -321,7 +640,7 @@
       function getFullTimestamp() {
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
-        return now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
+        return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) +
           ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
       }
 
@@ -333,16 +652,8 @@
 
       function saveToStorage() {
         try {
-          const data = blocksData.map(b => ({
-            text: b.text,
-            originalText: b.originalText,
-            translations: b.translations || {},
-            currentLang: b.currentLang || 'ru',
-            time: b.time,
-            collapsed: b.collapsed,
-            live: b.live
-          })).filter(b => !b.live);
-          localStorage.setItem('blocks', JSON.stringify(data));
+          localStorage.setItem('blocks', JSON.stringify(blocksData.filter(b => !b.live)));
+          localStorage.setItem('archiveBlocks', JSON.stringify(archiveData));
         } catch (_) {}
       }
 
@@ -359,8 +670,21 @@
               currentLang: b.currentLang || 'ru',
               originalText: b.originalText || b.text
             }));
-            renderBlocks();
           }
+          const rawArchive = localStorage.getItem('archiveBlocks');
+          if (rawArchive) {
+            archiveData = JSON.parse(rawArchive);
+            archiveData = archiveData.map(b => ({
+              ...b,
+              collapsed: b.collapsed !== undefined ? b.collapsed : true,
+              live: false,
+              translations: b.translations || {},
+              currentLang: b.currentLang || 'ru',
+              originalText: b.originalText || b.text
+            }));
+          }
+          renderBlocks();
+          renderArchiveBlocks();
         } catch (_) {}
       }
 
@@ -401,18 +725,18 @@
       }
 
       function renderBlocks() {
-        if (blocksData.length === 0) {
+        const blocks = blocksData.filter(b => !b.live);
+        if (blocks.length === 0) {
           blocksEl.innerHTML = '';
           updateButtons();
           return;
         }
 
         let html = '';
-        blocksData.forEach((block, index) => {
+        blocks.forEach((block, index) => {
           const isCollapsed = block.collapsed !== false;
           const isLive = block.live || false;
           const langLabel = LANG_NAMES[block.currentLang] || '🇷🇺';
-
           let borderColor = '#4CAF50';
           if (isLive) {
             borderColor = '#ff9800';
@@ -420,10 +744,10 @@
             if (block.currentLang === 'en') borderColor = '#2196F3';
             if (block.currentLang === 'tr') borderColor = '#f44336';
           }
-
           const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}`;
+          const realIndex = blocksData.indexOf(block);
           html += `
-            <div class="${blockClass}" data-index="${index}" style="border-left-color: ${borderColor};">
+            <div class="${blockClass}" data-index="${realIndex}" style="border-left-color: ${borderColor};">
               <div class="block-text">${escapeHtml(block.text)}</div>
               <span class="block-time">${block.time} ${langLabel}</span>
               <span class="swipe-hint left">← перевести</span>
@@ -432,23 +756,79 @@
           `;
         });
         blocksEl.innerHTML = html;
+        attachBlockEvents(blocksEl, false);
+        updateButtons();
+        saveToStorage();
+      }
 
-        document.querySelectorAll('.block').forEach(el => {
-          const idx = parseInt(el.dataset.index);
+      function renderArchiveBlocks() {
+        if (archiveData.length === 0) {
+          blocksArchiveEl.innerHTML = '<div style="color:#666;text-align:center;padding:40px 0;">Архив пуст</div>';
+          updateArchiveButtons();
+          return;
+        }
 
-          // ========== ДОЛГОЕ НАЖАТИЕ (700 мс) ==========
+        let html = '';
+        archiveData.forEach((block, index) => {
+          const isCollapsed = block.collapsed !== false;
+          const langLabel = LANG_NAMES[block.currentLang] || '🇷🇺';
+          let borderColor = '#4CAF50';
+          if (block.currentLang === 'en') borderColor = '#2196F3';
+          if (block.currentLang === 'tr') borderColor = '#f44336';
+          const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'}`;
+          html += `
+            <div class="${blockClass}" data-archive-index="${index}" style="border-left-color: ${borderColor};">
+              <div class="block-text">${escapeHtml(block.text)}</div>
+              <span class="block-time">${block.time} ${langLabel}</span>
+              <span class="swipe-hint left">← перевести</span>
+              <span class="swipe-hint right">↩ отмена</span>
+            </div>
+          `;
+        });
+        blocksArchiveEl.innerHTML = html;
+        attachBlockEvents(blocksArchiveEl, true);
+        updateArchiveButtons();
+        saveToStorage();
+      }
+
+      function attachBlockEvents(container, isArchive) {
+        container.querySelectorAll('.block').forEach(el => {
+          const idx = parseInt(el.dataset.index !== undefined ? el.dataset.index : el.dataset.archiveIndex);
+          if (isNaN(idx)) return;
+
+          // Клик — сворачивание
+          el.addEventListener('click', function(e) {
+            if (longPressTriggered) {
+              longPressTriggered = false;
+              return;
+            }
+            const data = isArchive ? archiveData : blocksData;
+            if (!data[idx] || data[idx].live) return;
+            data[idx].collapsed = !data[idx].collapsed;
+            if (isArchive) renderArchiveBlocks();
+            else renderBlocks();
+          });
+
+          // Долгое нажатие
           el.addEventListener('pointerdown', function(e) {
             longPressTriggered = false;
+            longPressTarget = { el, idx, isArchive };
             longPressTimer = setTimeout(() => {
               longPressTriggered = true;
-              const block = blocksData[idx];
-              if (block && !block.live) {
-                if (confirm('Удалить этот блок?')) {
-                  blocksData.splice(idx, 1);
-                  renderBlocks();
-                  saveToStorage();
-                  showToast('🗑 Блок удалён');
+              const data = isArchive ? archiveData : blocksData;
+              if (!data[idx] || data[idx].live) return;
+              if (isArchive) {
+                // Архив — только удаление с подтверждением
+                if (confirm('Удалить этот блок из архива?')) {
+                  archiveData.splice(idx, 1);
+                  renderArchiveBlocks();
+                  showToast('🗑 Блок удалён из архива');
                 }
+              } else {
+                // Основной экран — меню с двумя кнопками
+                longPressMenu.classList.add('active');
+                longPressMenu._targetIndex = idx;
+                longPressMenu._isArchive = false;
               }
             }, 700);
           });
@@ -461,217 +841,175 @@
             clearTimeout(longPressTimer);
           });
 
-          // ========== КЛИК (сворачивание) ==========
-          el.addEventListener('click', function(e) {
-            if (longPressTriggered) {
-              longPressTriggered = false;
+          // Свайпы
+          el.addEventListener('touchstart', function(e) {
+            swipeState.startX = e.touches[0].clientX;
+            swipeState.startY = e.touches[0].clientY;
+            swipeState.isSwiping = false;
+            swipeState.currentElement = this;
+            swipeState.currentIndex = idx;
+            swipeState.isArchive = isArchive;
+            this.classList.remove('swiping-left', 'swiping-right');
+          }, { passive: true });
+
+          el.addEventListener('touchmove', function(e) {
+            if (!swipeState.currentElement) return;
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - swipeState.startX;
+            const deltaY = touch.clientY - swipeState.startY;
+            if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) {
+              swipeState.isSwiping = false;
               return;
             }
-            if (!blocksData[idx] || blocksData[idx].live) return;
-            blocksData[idx].collapsed = !blocksData[idx].collapsed;
-            renderBlocks();
-            saveToStorage();
+            swipeState.isSwiping = true;
+            e.preventDefault();
+            const threshold = 60;
+            if (deltaX < -threshold) {
+              this.classList.add('swiping-left');
+              this.classList.remove('swiping-right');
+            } else if (deltaX > threshold) {
+              this.classList.add('swiping-right');
+              this.classList.remove('swiping-left');
+            } else {
+              this.classList.remove('swiping-left', 'swiping-right');
+            }
+          }, { passive: false });
+
+          el.addEventListener('touchend', function(e) {
+            if (!swipeState.currentElement) return;
+            const index = swipeState.currentIndex;
+            const isArchiveMode = swipeState.isArchive;
+            this.classList.remove('swiping-left', 'swiping-right');
+            if (!swipeState.isSwiping) {
+              swipeState.isSwiping = false;
+              swipeState.currentElement = null;
+              return;
+            }
+            const touch = e.changedTouches[0];
+            const deltaX = touch.clientX - swipeState.startX;
+            const threshold = 50;
+            if (deltaX < -threshold) {
+              handleSwipeLeft(index, isArchiveMode);
+            } else if (deltaX > threshold) {
+              handleSwipeRight(index, isArchiveMode);
+            }
+            swipeState.isSwiping = false;
+            swipeState.currentElement = null;
+          }, { passive: true });
+
+          // Mouse events for desktop
+          el.addEventListener('mousedown', function(e) {
+            mouseSwipeState.startX = e.clientX;
+            mouseSwipeState.startY = e.clientY;
+            mouseSwipeState.isSwiping = false;
+            mouseSwipeState.currentElement = this;
+            mouseSwipeState.currentIndex = idx;
+            mouseSwipeState.isArchive = isArchive;
+            this.classList.remove('swiping-left', 'swiping-right');
+            e.preventDefault();
           });
 
-          // ========== СВАЙПЫ ==========
-          el.addEventListener('touchstart', onTouchStart, { passive: true });
-          el.addEventListener('touchmove', onTouchMove, { passive: false });
-          el.addEventListener('touchend', onTouchEnd, { passive: true });
+          document.addEventListener('mousemove', function(e) {
+            if (!mouseSwipeState.currentElement) return;
+            const deltaX = e.clientX - mouseSwipeState.startX;
+            const deltaY = e.clientY - mouseSwipeState.startY;
+            if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) {
+              mouseSwipeState.isSwiping = false;
+              return;
+            }
+            mouseSwipeState.isSwiping = true;
+            e.preventDefault();
+            const threshold = 60;
+            if (deltaX < -threshold) {
+              mouseSwipeState.currentElement.classList.add('swiping-left');
+              mouseSwipeState.currentElement.classList.remove('swiping-right');
+            } else if (deltaX > threshold) {
+              mouseSwipeState.currentElement.classList.add('swiping-right');
+              mouseSwipeState.currentElement.classList.remove('swiping-left');
+            } else {
+              mouseSwipeState.currentElement.classList.remove('swiping-left', 'swiping-right');
+            }
+          });
 
-          el.addEventListener('mousedown', onMouseDown);
+          document.addEventListener('mouseup', function(e) {
+            if (!mouseSwipeState.currentElement) return;
+            const index = mouseSwipeState.currentIndex;
+            const isArchiveMode = mouseSwipeState.isArchive;
+            mouseSwipeState.currentElement.classList.remove('swiping-left', 'swiping-right');
+            if (!mouseSwipeState.isSwiping) {
+              mouseSwipeState.isSwiping = false;
+              mouseSwipeState.currentElement = null;
+              return;
+            }
+            const deltaX = e.clientX - mouseSwipeState.startX;
+            const threshold = 50;
+            if (deltaX < -threshold) {
+              handleSwipeLeft(index, isArchiveMode);
+            } else if (deltaX > threshold) {
+              handleSwipeRight(index, isArchiveMode);
+            }
+            mouseSwipeState.isSwiping = false;
+            mouseSwipeState.currentElement = null;
+          });
         });
-
-        updateButtons();
-        saveToStorage();
       }
 
-      // ========== СВАЙПЫ ==========
-      function onTouchStart(e) {
-        const touch = e.touches[0];
-        swipeState.startX = touch.clientX;
-        swipeState.startY = touch.clientY;
-        swipeState.isSwiping = false;
-        swipeState.currentElement = this;
-        swipeState.currentIndex = parseInt(this.dataset.index);
-        this.classList.remove('swiping-left', 'swiping-right');
-      }
-
-      function onTouchMove(e) {
-        if (!swipeState.currentElement) return;
-        const touch = e.touches[0];
-        const deltaX = touch.clientX - swipeState.startX;
-        const deltaY = touch.clientY - swipeState.startY;
-        if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) {
-          swipeState.isSwiping = false;
-          return;
-        }
-        swipeState.isSwiping = true;
-        e.preventDefault();
-        const el = swipeState.currentElement;
-        const threshold = 60;
-        if (deltaX < -threshold) {
-          el.classList.add('swiping-left');
-          el.classList.remove('swiping-right');
-        } else if (deltaX > threshold) {
-          el.classList.add('swiping-right');
-          el.classList.remove('swiping-left');
-        } else {
-          el.classList.remove('swiping-left', 'swiping-right');
-        }
-      }
-
-      function onTouchEnd(e) {
-        if (!swipeState.currentElement) return;
-        const el = swipeState.currentElement;
-        const index = swipeState.currentIndex;
-        el.classList.remove('swiping-left', 'swiping-right');
-        if (!swipeState.isSwiping) {
-          swipeState.isSwiping = false;
-          swipeState.currentElement = null;
-          return;
-        }
-        const touch = e.changedTouches[0];
-        const deltaX = touch.clientX - swipeState.startX;
-        const threshold = 50;
-        if (deltaX < -threshold) handleSwipeLeft(index);
-        else if (deltaX > threshold) handleSwipeRight(index);
-        swipeState.isSwiping = false;
-        swipeState.currentElement = null;
-      }
-
-      function onMouseDown(e) {
-        const el = e.currentTarget;
-        const idx = parseInt(el.dataset.index);
-        if (isNaN(idx) || !blocksData[idx] || blocksData[idx].live) return;
-        mouseSwipeState.startX = e.clientX;
-        mouseSwipeState.startY = e.clientY;
-        mouseSwipeState.isSwiping = false;
-        mouseSwipeState.currentElement = el;
-        mouseSwipeState.currentIndex = idx;
-        el.classList.remove('swiping-left', 'swiping-right');
-        e.preventDefault();
-      }
-
-      document.addEventListener('mousemove', function(e) {
-        if (!mouseSwipeState.currentElement) return;
-        const el = mouseSwipeState.currentElement;
-        const deltaX = e.clientX - mouseSwipeState.startX;
-        const deltaY = e.clientY - mouseSwipeState.startY;
-        if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) {
-          mouseSwipeState.isSwiping = false;
-          return;
-        }
-        mouseSwipeState.isSwiping = true;
-        e.preventDefault();
-        const threshold = 60;
-        if (deltaX < -threshold) {
-          el.classList.add('swiping-left');
-          el.classList.remove('swiping-right');
-        } else if (deltaX > threshold) {
-          el.classList.add('swiping-right');
-          el.classList.remove('swiping-left');
-        } else {
-          el.classList.remove('swiping-left', 'swiping-right');
-        }
-      });
-
-      document.addEventListener('mouseup', function(e) {
-        if (!mouseSwipeState.currentElement) return;
-        const el = mouseSwipeState.currentElement;
-        const index = mouseSwipeState.currentIndex;
-        el.classList.remove('swiping-left', 'swiping-right');
-        if (!mouseSwipeState.isSwiping) {
-          mouseSwipeState.isSwiping = false;
-          mouseSwipeState.currentElement = null;
-          return;
-        }
-        const deltaX = e.clientX - mouseSwipeState.startX;
-        const threshold = 50;
-        if (deltaX < -threshold) handleSwipeLeft(index);
-        else if (deltaX > threshold) handleSwipeRight(index);
-        mouseSwipeState.isSwiping = false;
-        mouseSwipeState.currentElement = null;
-      });
-
-      // ========== ОСНОВНАЯ ЛОГИКА ПЕРЕВОДОВ ==========
-      async function handleSwipeLeft(index) {
-        const block = blocksData[index];
+      async function handleSwipeLeft(index, isArchive) {
+        const data = isArchive ? archiveData : blocksData;
+        const block = data[index];
         if (!block || block.live) return;
-
         ensureBlockHasTranslations(block);
-
         const nextLang = getNextLang(block.currentLang);
-
         if (nextLang === 'ru') {
           block.text = block.originalText;
           block.currentLang = 'ru';
-          renderBlocks();
-          saveToStorage();
-          showToast('↩️ Оригинал');
-          return;
-        }
-
-        if (block.translations[nextLang]) {
+        } else if (block.translations[nextLang]) {
           block.text = block.translations[nextLang];
           block.currentLang = nextLang;
-          renderBlocks();
-          saveToStorage();
-          showToast(`✅ ${LANG_NAMES[nextLang]}`);
-          return;
-        }
-
-        showToast(`⏳ Перевод на ${LANG_NAMES[nextLang]}...`);
-        const translated = await translateText(block.originalText, nextLang);
-        if (translated && translated !== block.originalText) {
-          block.translations[nextLang] = translated;
-          block.text = translated;
-          block.currentLang = nextLang;
-          renderBlocks();
-          saveToStorage();
-          showToast(`✅ ${LANG_NAMES[nextLang]}`);
         } else {
-          showToast('❌ Ошибка перевода');
+          showToast(`⏳ Перевод на ${LANG_NAMES[nextLang]}...`);
+          const translated = await translateText(block.originalText, nextLang);
+          if (translated && translated !== block.originalText) {
+            block.translations[nextLang] = translated;
+            block.text = translated;
+            block.currentLang = nextLang;
+          } else {
+            showToast('❌ Ошибка перевода');
+            return;
+          }
         }
+        if (isArchive) renderArchiveBlocks();
+        else renderBlocks();
+        showToast(`✅ ${LANG_NAMES[block.currentLang]}`);
       }
 
-      async function handleSwipeRight(index) {
-        const block = blocksData[index];
+      async function handleSwipeRight(index, isArchive) {
+        const data = isArchive ? archiveData : blocksData;
+        const block = data[index];
         if (!block || block.live) return;
-
         ensureBlockHasTranslations(block);
-
         const prevLang = getPrevLang(block.currentLang);
-
         if (prevLang === 'ru') {
           block.text = block.originalText;
           block.currentLang = 'ru';
-          renderBlocks();
-          saveToStorage();
-          showToast('↩️ Оригинал');
-          return;
-        }
-
-        if (block.translations[prevLang]) {
+        } else if (block.translations[prevLang]) {
           block.text = block.translations[prevLang];
           block.currentLang = prevLang;
-          renderBlocks();
-          saveToStorage();
-          showToast(`↩️ ${LANG_NAMES[prevLang]}`);
-          return;
-        }
-
-        showToast(`⏳ ${LANG_NAMES[prevLang]}...`);
-        const translated = await translateText(block.originalText, prevLang);
-        if (translated && translated !== block.originalText) {
-          block.translations[prevLang] = translated;
-          block.text = translated;
-          block.currentLang = prevLang;
-          renderBlocks();
-          saveToStorage();
-          showToast(`↩️ ${LANG_NAMES[prevLang]}`);
         } else {
-          showToast('❌ Ошибка перевода');
+          showToast(`⏳ ${LANG_NAMES[prevLang]}...`);
+          const translated = await translateText(block.originalText, prevLang);
+          if (translated && translated !== block.originalText) {
+            block.translations[prevLang] = translated;
+            block.text = translated;
+            block.currentLang = prevLang;
+          } else {
+            showToast('❌ Ошибка перевода');
+            return;
+          }
         }
+        if (isArchive) renderArchiveBlocks();
+        else renderBlocks();
+        showToast(`↩️ ${LANG_NAMES[block.currentLang]}`);
       }
 
       function updateButtons() {
@@ -693,6 +1031,25 @@
         }
       }
 
+      function updateArchiveButtons() {
+        const hasBlocks = archiveData.length > 0;
+        if (hasBlocks) {
+          saveArchiveBtn.disabled = false;
+          saveArchiveBtn.className = 'btn-save active';
+          copyArchiveBtn.disabled = false;
+          copyArchiveBtn.className = 'btn-copy active';
+          clearArchiveBtn.disabled = false;
+          clearArchiveBtn.className = 'btn-clear active';
+        } else {
+          saveArchiveBtn.disabled = true;
+          saveArchiveBtn.className = 'btn-save';
+          copyArchiveBtn.disabled = true;
+          copyArchiveBtn.className = 'btn-copy';
+          clearArchiveBtn.disabled = true;
+          clearArchiveBtn.className = 'btn-clear';
+        }
+      }
+
       function addBlock(text, live = false) {
         if (!live && !text.trim()) return;
         if (live && text === undefined) text = ' ';
@@ -707,7 +1064,6 @@
         };
         blocksData.push(block);
         renderBlocks();
-        saveToStorage();
         return blocksData.length - 1;
       }
 
@@ -825,14 +1181,13 @@
         else startRec();
       }
 
-      function getFullTextWithTimestamps() {
-        const realBlocks = blocksData.filter(b => !b.live);
-        if (realBlocks.length === 0) return '';
-        return realBlocks.map(b => `${b.time}  ${b.text}`).join('\n\n');
+      function getFullTextWithTimestamps(data) {
+        if (data.length === 0) return '';
+        return data.map(b => `${b.time}  ${b.text}`).join('\n\n');
       }
 
-      function copyText() {
-        const text = getFullTextWithTimestamps();
+      function copyText(data, isArchive) {
+        const text = getFullTextWithTimestamps(data);
         if (!text) { showToast('❌ Нет текста'); return; }
         navigator.clipboard.writeText(text).then(() => {
           showToast('✅ Скопировано в буфер');
@@ -841,20 +1196,16 @@
         });
       }
 
-      function saveFile() {
-        const realBlocks = blocksData.filter(b => !b.live);
-        if (realBlocks.length === 0) {
+      function saveFile(data, isArchive) {
+        if (data.length === 0) {
           showToast('❌ Нет текста');
           return;
         }
-
-        const text = getFullTextWithTimestamps();
-
+        const text = getFullTextWithTimestamps(data);
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
-        const name = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
+        const name = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) +
           '_' + pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds()) + '.txt';
-
         try {
           const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
           const url = URL.createObjectURL(blob);
@@ -871,26 +1222,119 @@
         }
       }
 
-      function clearAll() {
-        const realBlocks = blocksData.filter(b => !b.live);
-        if (realBlocks.length === 0) { showToast('Нет блоков для очистки'); return; }
-        if (confirm('Очистить все блоки?')) {
-          blocksData = blocksData.filter(b => b.live);
-          if (blocksData.length > 0 && blocksData[0].live) {
-            blocksData[0].text = ' ';
-            accumulatedText = '';
-          }
-          renderBlocks();
-          localStorage.removeItem('blocks');
-          showToast('🗑 Очищено');
+      function clearArchive() {
+        if (archiveData.length === 0) { showToast('Архив пуст'); return; }
+        if (confirm('Очистить архив?')) {
+          archiveData = [];
+          renderArchiveBlocks();
+          showToast('🗑 Архив очищен');
         }
       }
 
-      recordBtn.addEventListener('click', toggleRec);
-      saveBtn.addEventListener('click', saveFile);
-      copyBtn.addEventListener('click', copyText);
-      clearBtn.addEventListener('click', clearAll);
+      // === Меню долгого нажатия ===
+      menuDelete.addEventListener('click', function() {
+        longPressMenu.classList.remove('active');
+        const idx = longPressMenu._targetIndex;
+        if (idx !== undefined && !longPressMenu._isArchive) {
+          blocksData.splice(idx, 1);
+          renderBlocks();
+          showToast('🗑 Блок удалён');
+        }
+        longPressMenu._targetIndex = undefined;
+      });
 
+      menuArchive.addEventListener('click', function() {
+        longPressMenu.classList.remove('active');
+        const idx = longPressMenu._targetIndex;
+        if (idx !== undefined && !longPressMenu._isArchive) {
+          const block = blocksData[idx];
+          if (block && !block.live) {
+            archiveData.push({ ...block, live: false });
+            blocksData.splice(idx, 1);
+            renderBlocks();
+            renderArchiveBlocks();
+            showToast('⭐ Блок заархивирован');
+          }
+        }
+        longPressMenu._targetIndex = undefined;
+      });
+
+      // Клик вне меню закрывает его
+      longPressMenu.addEventListener('click', function(e) {
+        if (e.target === this) {
+          this.classList.remove('active');
+          longPressMenu._targetIndex = undefined;
+        }
+      });
+
+      // === Переключение экранов ===
+      function openArchive() {
+        app.classList.add('archive-open');
+        renderArchiveBlocks();
+      }
+
+      function closeArchive() {
+        app.classList.remove('archive-open');
+      }
+
+      // Свайп вправо по пустому месту на основном экране
+      blocksEl.addEventListener('touchstart', function(e) {
+        if (e.target.closest('.block')) return;
+        const touch = e.touches[0];
+        swipeState.startX = touch.clientX;
+        swipeState.startY = touch.clientY;
+        swipeState.isSwiping = false;
+        swipeState.currentElement = this;
+      }, { passive: true });
+
+      blocksEl.addEventListener('touchmove', function(e) {
+        if (e.target.closest('.block')) return;
+        if (!swipeState.currentElement) return;
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - swipeState.startX;
+        const deltaY = touch.clientY - swipeState.startY;
+        if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) return;
+        if (deltaX > 50) {
+          swipeState.isSwiping = true;
+          e.preventDefault();
+          openArchive();
+          swipeState.isSwiping = false;
+          swipeState.currentElement = null;
+        }
+      }, { passive: false });
+
+      // Кнопки закрытия архива
+      backFromArchiveBtn.addEventListener('click', closeArchive);
+      closeArchiveBtn.addEventListener('click', closeArchive);
+
+      // === События кнопок ===
+      recordBtn.addEventListener('click', toggleRec);
+
+      saveBtn.addEventListener('click', function() {
+        saveFile(blocksData.filter(b => !b.live), false);
+      });
+      copyBtn.addEventListener('click', function() {
+        copyText(blocksData.filter(b => !b.live), false);
+      });
+      clearBtn.addEventListener('click', function() {
+        const hasBlocks = blocksData.filter(b => !b.live).length > 0;
+        if (!hasBlocks) { showToast('Нет блоков для очистки'); return; }
+        if (confirm('Очистить все блоки на основном экране?')) {
+          blocksData = blocksData.filter(b => b.live);
+          renderBlocks();
+          showToast('🗑 Основной экран очищен');
+        }
+      });
+
+      saveArchiveBtn.addEventListener('click', function() {
+        saveFile(archiveData, true);
+      });
+      copyArchiveBtn.addEventListener('click', function() {
+        copyText(archiveData, true);
+      });
+      clearArchiveBtn.addEventListener('click', clearArchive);
+
+      // Горячие клавиши
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
           e.preventDefault();
@@ -903,7 +1347,6 @@
       });
 
       loadFromStorage();
-      renderBlocks();
     })();
   </script>
 </body>
