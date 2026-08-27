@@ -29,7 +29,8 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.6);
     }
     .blocks {
-      flex: 1;
+      flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
       overflow-x: hidden;
       padding: 4px 0 12px 0;
@@ -51,7 +52,7 @@
       user-select: none;
       -webkit-user-select: none;
       color: #e8e8e8;
-      transition: background 0.2s;
+      flex-shrink: 0;
     }
     .block:active { background: #3a3a3a; }
     .block.live {
