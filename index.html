@@ -96,7 +96,6 @@
     .block.swiping-left .swipe-hint.left { opacity: 1; }
     .block.swiping-right .swipe-hint.right { opacity: 1; }
 
-    /* Кнопка озвучки */
     .btn-speak {
       position: absolute;
       top: 12px;
@@ -429,9 +428,8 @@
     // ===================== ОЗВУЧКА =====================
     let audioContext = null;
     let currentAudioSource = null;
-    let currentSpeakingBlock = null; // { blockId, isArchive }
+    let currentSpeakingBlock = null;
 
-    // Языки и голоса для Edge TTS
     const VOICE_MAP = {
       ru: 'ru-RU-SvetlanaNeural',
       en: 'en-US-JennyNeural',
@@ -439,14 +437,69 @@
       tr: 'tr-TR-EmelNeural'
     };
 
-    async function getEdgeTTSAudio(text, lang) {
+    async function getTTSAudio(text, lang) {
       const voice = VOICE_MAP[lang] || VOICE_MAP.ru;
-      // Используем Edge TTS через бесплатный прокси
-      const url = `https://api.edge-tts.workers.dev/tts?text=${encodeURIComponent(text)}&voice=${voice}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Ошибка получения аудио');
-      const arrayBuffer = await response.arrayBuffer();
-      return arrayBuffer;
+
+      // Пробуем Edge TTS сначала
+      try {
+        const url = `https://api.edge-tts.workers.dev/tts?text=${encodeURIComponent(text)}&voice=${voice}`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          if (arrayBuffer.byteLength > 100) {
+            return arrayBuffer;
+          }
+        }
+      } catch (_) {}
+
+      // Бэкап: Google Translate TTS
+      console.warn('Edge TTS не ответил, используем Google Translate TTS');
+      return await getGoogleTTSAudio(text, lang);
+    }
+
+    async function getGoogleTTSAudio(text, lang) {
+      const langMap = { ru: 'ru', en: 'en', es: 'es', tr: 'tr' };
+      const tl = langMap[lang] || 'ru';
+      const maxChunk = 100;
+      const chunks = splitText(text, maxChunk);
+      const audioBuffers = [];
+
+      for (const chunk of chunks) {
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${tl}&client=tw-ob`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Google TTS error');
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffers.push(arrayBuffer);
+      }
+
+      if (audioBuffers.length === 1) return audioBuffers[0];
+      return concatenateAudioBuffers(audioBuffers);
+    }
+
+    function splitText(text, maxLength) {
+      const chunks = [];
+      let current = '';
+      for (const word of text.split(' ')) {
+        if ((current + ' ' + word).length > maxLength) {
+          chunks.push(current.trim());
+          current = word;
+        } else {
+          current += (current ? ' ' : '') + word;
+        }
+      }
+      if (current) chunks.push(current.trim());
+      return chunks;
+    }
+
+    function concatenateAudioBuffers(buffers) {
+      const totalLength = buffers.reduce((sum, b) => sum + b.byteLength, 0);
+      const result = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const buf of buffers) {
+        result.set(new Uint8Array(buf), offset);
+        offset += buf.byteLength;
+      }
+      return result.buffer;
     }
 
     function playAudio(arrayBuffer) {
@@ -477,11 +530,51 @@
         audioContext = null;
       }
       currentSpeakingBlock = null;
-      // Обновляем все кнопки
       document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
     }
 
-    // ===================== ОСНОВНАЯ ЛОГИКА =====================
+    function handleSpeak(blockId, isArchive, event) {
+      event.stopPropagation();
+      const data = isArchive ? archiveData : blocksData;
+      const block = data[blockId];
+      if (!block || block.live) return;
+
+      const text = block.text;
+      if (!text || !text.trim()) {
+        showToast('Нет текста для озвучки');
+        return;
+      }
+
+      const lang = block.currentLang || 'ru';
+
+      if (currentSpeakingBlock && currentSpeakingBlock.blockId === blockId && currentSpeakingBlock.isArchive === isArchive) {
+        stopAudio();
+        showToast('⏹ Остановлено');
+        return;
+      }
+
+      stopAudio();
+
+      showToast(`🔊 Озвучка...`);
+      getTTSAudio(text, lang).then(audioData => {
+        return playAudio(audioData);
+      }).then(source => {
+        currentSpeakingBlock = { blockId, isArchive };
+        document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
+        const btn = document.querySelector(`.btn-speak[data-block-id="${blockId}"][data-archive="${isArchive}"]`);
+        if (btn) btn.classList.add('playing');
+        source.onended = () => {
+          document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
+          currentSpeakingBlock = null;
+        };
+        showToast(`🔊 ${LANG_FULL[lang] || lang}`);
+      }).catch(err => {
+        console.error('TTS error:', err);
+        showToast('❌ Ошибка озвучки');
+      });
+    }
+
+    // ===================== ОСТАЛЬНАЯ ЛОГИКА =====================
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -617,53 +710,6 @@
       return result;
     }
 
-    // ========== ОЗВУЧКА В БЛОКАХ ==========
-    function handleSpeak(blockId, isArchive, event) {
-      event.stopPropagation();
-      const data = isArchive ? archiveData : blocksData;
-      const block = data[blockId];
-      if (!block || block.live) return;
-
-      const text = block.text;
-      if (!text || !text.trim()) {
-        showToast('Нет текста для озвучки');
-        return;
-      }
-
-      const lang = block.currentLang || 'ru';
-      const voice = VOICE_MAP[lang] || VOICE_MAP.ru;
-
-      // Если уже играет этот же блок — останавливаем
-      if (currentSpeakingBlock && currentSpeakingBlock.blockId === blockId && currentSpeakingBlock.isArchive === isArchive) {
-        stopAudio();
-        showToast('⏹ Остановлено');
-        return;
-      }
-
-      // Иначе останавливаем всё и начинаем заново
-      stopAudio();
-
-      showToast(`🔊 Озвучка на ${LANG_FULL[lang] || lang}...`);
-      getEdgeTTSAudio(text, lang).then(audioData => {
-        return playAudio(audioData);
-      }).then(source => {
-        currentSpeakingBlock = { blockId, isArchive };
-        // Подсвечиваем кнопку
-        document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
-        const btn = document.querySelector(`.btn-speak[data-block-id="${blockId}"][data-archive="${isArchive}"]`);
-        if (btn) btn.classList.add('playing');
-        // Когда звук закончится — снимаем подсветку
-        source.onended = () => {
-          document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
-          currentSpeakingBlock = null;
-        };
-        showToast(`🔊 ${LANG_FULL[lang] || lang}`);
-      }).catch(err => {
-        console.error('TTS error:', err);
-        showToast('❌ Ошибка озвучки');
-      });
-    }
-
     function renderBlocks() {
       const blocks = blocksData;
       if (blocks.length === 0) {
@@ -697,7 +743,6 @@
       attachEvents(blocksEl, false);
       updateButtons();
       saveToStorage();
-      // Назначаем обработчики для кнопок озвучки
       document.querySelectorAll('.btn-speak[data-archive="false"]').forEach(btn => {
         const blockId = parseInt(btn.dataset.blockId);
         btn.addEventListener('click', (e) => handleSpeak(blockId, false, e));
@@ -734,7 +779,6 @@
       attachEvents(blocksArchiveEl, true);
       updateArchiveButtons();
       saveToStorage();
-      // Назначаем обработчики для кнопок озвучки
       document.querySelectorAll('.btn-speak[data-archive="true"]').forEach(btn => {
         const blockId = parseInt(btn.dataset.blockId);
         btn.addEventListener('click', (e) => handleSpeak(blockId, true, e));
@@ -748,7 +792,7 @@
 
         el.addEventListener('click', function(e) {
           if (longPressTriggered) { longPressTriggered = false; return; }
-          if (e.target.closest('.btn-speak')) return; // не сворачивать при клике на кнопку
+          if (e.target.closest('.btn-speak')) return;
           const data = isArchive ? archiveData : blocksData;
           if (!data[idx] || data[idx].live) return;
           data[idx].collapsed = !data[idx].collapsed;
@@ -777,7 +821,6 @@
         el.addEventListener('pointerup', () => clearTimeout(longPressTimer));
         el.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
 
-        // свайпы
         el.addEventListener('touchstart', function(e) {
           if (e.target.closest('.btn-speak')) return;
           swipeState.startX = e.touches[0].clientX;
