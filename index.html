@@ -30,7 +30,6 @@
       flex-direction: column;
     }
 
-    /* ===== БЛОКИ ===== */
     .blocks-container {
       flex: 1 1 auto;
       min-height: 0;
@@ -98,7 +97,6 @@
     .block.swiping-left .swipe-hint.left { opacity: 1; }
     .block.swiping-right .swipe-hint.right { opacity: 1; }
 
-    /* ===== КНОПКИ ===== */
     .buttons {
       display: flex;
       align-items: center;
@@ -196,7 +194,6 @@
       padding-bottom: 2px;
     }
 
-    /* ===== МЕНЮ ДОЛГОГО НАЖАТИЯ ===== */
     .long-press-menu {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -231,7 +228,6 @@
     .long-press-menu .menu-btn.delete { background: #ff1744; color: white; }
     .long-press-menu .menu-btn.archive { background: #2a2a2a; color: #ffd700; }
 
-    /* ===== ЭКРАН АРХИВА ===== */
     .screen {
       position: absolute;
       top: 0; left: 0;
@@ -343,7 +339,6 @@
 </head>
 <body>
 <div class="app" id="app">
-  <!-- ОСНОВНОЙ ЭКРАН -->
   <div class="screen main" id="mainScreen">
     <div class="blocks-container" id="blocks"></div>
     <div class="buttons">
@@ -354,7 +349,6 @@
     </div>
   </div>
 
-  <!-- АРХИВНЫЙ ЭКРАН -->
   <div class="screen archive" id="archiveScreen">
     <div class="archive-header">
       <span class="title">📦 Архив</span>
@@ -367,7 +361,6 @@
     </div>
   </div>
 
-  <!-- МЕНЮ -->
   <div class="long-press-menu" id="longPressMenu">
     <div class="menu-buttons">
       <button class="menu-btn delete" id="menuDelete">✕</button>
@@ -416,7 +409,6 @@
       return;
     }
 
-    // ===================== НОВАЯ ЦЕПОЧКА ЯЗЫКОВ =====================
     const LANG_CHAIN_LEFT = ['ru', 'en', 'es', 'tr'];
     const LANG_CHAIN_RIGHT = ['ru', 'tr', 'es', 'en'];
     const LANG_NAMES = { ru: '🇷🇺', en: '🇬🇧', es: '🇪🇸', tr: '🇹🇷' };
@@ -544,7 +536,8 @@
     }
 
     function renderBlocks() {
-      const blocks = blocksData.filter(b => !b.live);
+      // Показываем все блоки, включая живой
+      const blocks = blocksData;
       if (blocks.length === 0) {
         blocksEl.innerHTML = '';
         updateButtons();
@@ -578,13 +571,15 @@
     }
 
     function renderArchiveBlocks() {
-      if (archiveData.length === 0) {
+      // Архив — только сохранённые блоки, живые не попадают
+      const blocks = archiveData;
+      if (blocks.length === 0) {
         blocksArchiveEl.innerHTML = '<div style="color:#666;text-align:center;padding:40px 0;">Архив пуст</div>';
         updateArchiveButtons();
         return;
       }
       let html = '';
-      archiveData.forEach((block, index) => {
+      blocks.forEach((block, index) => {
         const isCollapsed = block.collapsed !== false;
         const langLabel = LANG_NAMES[block.currentLang] || '🇷🇺';
         let borderColor = '#4CAF50';
@@ -1007,7 +1002,6 @@
       }
     }
 
-    // Меню долгого нажатия
     menuDelete.addEventListener('click', function() {
       longPressMenu.classList.remove('active');
       const idx = longPressMenu._targetIndex;
@@ -1038,7 +1032,6 @@
       if (e.target === this) this.classList.remove('active');
     });
 
-    // Кнопка «💾» на основном экране — короткое/долгое нажатие
     function handleSavePress(isLong) {
       const data = blocksData.filter(b => !b.live);
       if (data.length === 0) { showToast('❌ Нет текста'); return; }
@@ -1071,7 +1064,6 @@
       }
     });
 
-    // Кнопка «💾» на архивном экране — короткое/долгое нажатие
     function handleArchiveSavePress(isLong) {
       if (archiveData.length === 0) { showToast('❌ Нет текста в архиве'); return; }
       if (isLong) {
@@ -1103,19 +1095,16 @@
       }
     });
 
-    // Открытие архива
     archiveBtn.addEventListener('click', function() {
       if (archiveData.length === 0) return;
       app.classList.add('archive-open');
       renderArchiveBlocks();
     });
 
-    // Закрытие архива
     backFromArchiveBtn.addEventListener('click', function() {
       app.classList.remove('archive-open');
     });
 
-    // Очистка основного экрана
     clearBtn.addEventListener('click', function() {
       const hasBlocks = blocksData.filter(b => !b.live).length > 0;
       if (!hasBlocks) { showToast('Нет блоков для очистки'); return; }
@@ -1126,10 +1115,8 @@
       }
     });
 
-    // Очистка архива
     clearArchiveBtn.addEventListener('click', clearArchive);
 
-    // Запись
     recordBtn.addEventListener('click', toggleRec);
 
     document.addEventListener('keydown', (e) => {
