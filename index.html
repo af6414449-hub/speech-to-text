@@ -169,18 +169,28 @@
       background: #4CAF50;
       color: #1a1a1a;
       box-shadow: 0 4px 12px rgba(76,175,80,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      padding-bottom: 2px;
     }
     .btn-record.active {
       background: #f44336;
       box-shadow: 0 4px 12px rgba(244,67,54,0.3);
     }
     .btn-back {
-      width: 80px;
-      height: 80px;
-      font-size: 36px;
+      width: 56px;
+      height: 56px;
+      font-size: 24px;
       background: #2196F3;
       color: white;
-      box-shadow: 0 4px 12px rgba(33,150,243,0.4);
+      box-shadow: 0 2px 8px rgba(33,150,243,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      padding-bottom: 2px;
     }
 
     /* ===== МЕНЮ ДОЛГОГО НАЖАТИЯ ===== */
@@ -274,22 +284,27 @@
       flex-shrink: 0;
     }
     .archive-buttons .btn-clear,
-    .archive-buttons .btn-save {
+    .archive-buttons .btn-save,
+    .archive-buttons .btn-back {
       width: 56px;
       height: 56px;
       font-size: 24px;
     }
+    .archive-buttons .btn-clear { order: 0; background: #3a3a3a; color: #999; }
+    .archive-buttons .btn-clear.active { background: #ff1744; color: white; box-shadow: 0 2px 8px rgba(255,23,68,0.3); }
+    .archive-buttons .btn-save { order: 1; background: #3a3a3a; color: #999; }
+    .archive-buttons .btn-save.active { background: #42a5f5; color: #1a1a1a; box-shadow: 0 2px 8px rgba(66,165,245,0.3); }
     .archive-buttons .btn-back {
-      width: 80px;
-      height: 80px;
-      font-size: 36px;
+      order: 2;
       background: #2196F3;
       color: white;
-      box-shadow: 0 4px 12px rgba(33,150,243,0.4);
+      box-shadow: 0 2px 8px rgba(33,150,243,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      padding-bottom: 2px;
     }
-    .archive-buttons .btn-clear { order: 0; }
-    .archive-buttons .btn-save { order: 1; }
-    .archive-buttons .btn-back { order: 2; }
 
     .toast {
       position: fixed;
@@ -312,18 +327,14 @@
     @media (max-height: 640px) {
       .app { max-height: 95vh; padding: 12px; }
       .block-text { font-size: 14px; line-height: 1.5; }
-      .btn-clear, .btn-save, .btn-archive { width: 48px; height: 48px; font-size: 20px; }
-      .btn-record, .btn-back { width: 64px; height: 64px; font-size: 28px; }
+      .btn-clear, .btn-save, .btn-archive, .btn-back { width: 48px; height: 48px; font-size: 20px; }
+      .btn-record { width: 64px; height: 64px; font-size: 28px; }
       .buttons { gap: 10px; padding-top: 10px; }
-      .archive-buttons .btn-clear, .archive-buttons .btn-save { width: 48px; height: 48px; font-size: 20px; }
-      .archive-buttons .btn-back { width: 64px; height: 64px; font-size: 28px; }
     }
     @media (max-height: 500px) {
       .block-text { font-size: 13px; line-height: 1.4; }
-      .btn-clear, .btn-save, .btn-archive { width: 40px; height: 40px; font-size: 16px; }
-      .btn-record, .btn-back { width: 56px; height: 56px; font-size: 24px; }
-      .archive-buttons .btn-clear, .archive-buttons .btn-save { width: 40px; height: 40px; font-size: 16px; }
-      .archive-buttons .btn-back { width: 56px; height: 56px; font-size: 24px; }
+      .btn-clear, .btn-save, .btn-archive, .btn-back { width: 40px; height: 40px; font-size: 16px; }
+      .btn-record { width: 56px; height: 56px; font-size: 24px; }
     }
   </style>
 </head>
@@ -402,8 +413,27 @@
       return;
     }
 
-    const LANG_CHAIN = ['ru', 'en', 'tr'];
-    const LANG_NAMES = { ru: '🇷🇺', en: '🇬🇧', tr: '🇹🇷' };
+    // ===================== НОВАЯ ЦЕПОЧКА ЯЗЫКОВ =====================
+    const LANG_CHAIN_LEFT = ['ru', 'en', 'es', 'tr'];
+    const LANG_CHAIN_RIGHT = ['ru', 'tr', 'es', 'en'];
+    const LANG_NAMES = { ru: '🇷🇺', en: '🇬🇧', es: '🇪🇸', tr: '🇹🇷' };
+    const LANG_FULL = { ru: 'Русский', en: 'Английский', es: 'Испанский', tr: 'Турецкий' };
+
+    function getNextLang(currentLang) {
+      const idx = LANG_CHAIN_LEFT.indexOf(currentLang);
+      return LANG_CHAIN_LEFT[(idx + 1) % LANG_CHAIN_LEFT.length];
+    }
+
+    function getPrevLang(currentLang) {
+      const idx = LANG_CHAIN_RIGHT.indexOf(currentLang);
+      return LANG_CHAIN_RIGHT[(idx + 1) % LANG_CHAIN_RIGHT.length];
+    }
+
+    function ensureBlockHasTranslations(block) {
+      if (!block.translations) block.translations = {};
+      if (!block.currentLang) block.currentLang = 'ru';
+    }
+
     const questionWords = [
       'как','где','когда','почему','зачем','откуда','куда',
       'сколько','чей','чья','чье','чьи','кто','что',
@@ -430,42 +460,6 @@
         console.error('Translation error:', e);
         return text;
       }
-    }
-
-    function getNextLang(lang) {
-      const idx = LANG_CHAIN.indexOf(lang);
-      return LANG_CHAIN[(idx + 1) % LANG_CHAIN.length];
-    }
-    function getPrevLang(lang) {
-      const idx = LANG_CHAIN.indexOf(lang);
-      if (idx === 0) return LANG_CHAIN[LANG_CHAIN.length - 1];
-      return LANG_CHAIN[(idx - 1 + LANG_CHAIN.length) % LANG_CHAIN.length];
-    }
-    function ensureBlockHasTranslations(block) {
-      if (!block.translations) block.translations = {};
-      if (!block.currentLang) block.currentLang = 'ru';
-    }
-
-    const properNounsRoots = [
-      'алекс','андрей','анна','валентин','виктор','владимир','галин','дар','евгений','екатерин',
-      'елен','иван','игор','камил','колмогорц','константин','ксения','лиди','людмил','максим',
-      'михаил','надежд','николай','ольг','павел','петр','ромашенк','светлан','сергей','татьян',
-      'шлягин','юрий','яков',
-      'америк','англи','аргентин','белорус','бельги','болгар','бразили','венгр','вьетнам','герман',
-      'греци','грузин','египет','инди','испан','итали','казахстан','кипр','китай','колумби',
-      'коре','латви','литв','мексик','молдов','нидерланд','норвег','польш','португали','росси',
-      'румын','серби','словак','словен','сша','таиланд','турци','украин','финлянди','франци',
-      'хорват','черногори','чехи','чили','швейцар','швеци','эстон','южно-африк','япони',
-      'анкет','биометр','виз','документ','загран','консульств','миграцион','мультивиз',
-      'паспорт','подач','посольств','регистраци','собеседовани','туризм','шенген',
-      'администраци','министерств','посольств','президент','правительств','программ',
-      'автономн','аттестаци','возврат','двт','задвигать','родители','челябин'
-    ];
-
-    function isProperNoun(word) {
-      if (!word) return false;
-      const lower = word.toLowerCase();
-      return properNounsRoots.some(root => lower.startsWith(root));
     }
 
     function showToast(msg) {
@@ -526,16 +520,10 @@
     function fixDoubleSpaces(text) {
       return text.replace(/\s{2,}/g, '. ');
     }
+
     function capitalizeAfterPunctuation(text) {
       return text.replace(/([.!?])\s*([а-яё])/gi, (match, punct, letter) => {
         return punct + ' ' + letter.toUpperCase();
-      });
-    }
-    function insertDotsBeforeUppercase(text) {
-      return text.replace(/(?<![.!?])\s+([А-ЯЁ])/g, (match, letter) => {
-        const nextWord = match.trim();
-        if (isProperNoun(nextWord)) return ' ' + letter;
-        return '. ' + letter;
       });
     }
 
@@ -543,7 +531,6 @@
       if (!text || !text.trim()) return text;
       let result = text.trim();
       result = result.charAt(0).toUpperCase() + result.slice(1);
-      result = insertDotsBeforeUppercase(result);
       result = fixDoubleSpaces(result);
       const lastChar = result[result.length - 1];
       if (lastChar && !['.', '!', '?'].includes(lastChar)) {
@@ -569,6 +556,7 @@
         let borderColor = '#4CAF50';
         if (isLive) borderColor = '#ff9800';
         else if (block.currentLang === 'en') borderColor = '#2196F3';
+        else if (block.currentLang === 'es') borderColor = '#ff9800';
         else if (block.currentLang === 'tr') borderColor = '#f44336';
         const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}`;
         html += `
@@ -598,6 +586,7 @@
         const langLabel = LANG_NAMES[block.currentLang] || '🇷🇺';
         let borderColor = '#4CAF50';
         if (block.currentLang === 'en') borderColor = '#2196F3';
+        else if (block.currentLang === 'es') borderColor = '#ff9800';
         else if (block.currentLang === 'tr') borderColor = '#f44336';
         const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'}`;
         html += `
@@ -620,7 +609,6 @@
         const idx = parseInt(el.dataset.index !== undefined ? el.dataset.index : el.dataset.archiveIndex);
         if (isNaN(idx)) return;
 
-        // клик — сворачивание
         el.addEventListener('click', function(e) {
           if (longPressTriggered) { longPressTriggered = false; return; }
           const data = isArchive ? archiveData : blocksData;
@@ -629,7 +617,6 @@
           if (isArchive) renderArchiveBlocks(); else renderBlocks();
         });
 
-        // долгое нажатие
         el.addEventListener('pointerdown', function(e) {
           longPressTriggered = false;
           longPressTimer = setTimeout(() => {
@@ -651,7 +638,6 @@
         el.addEventListener('pointerup', () => clearTimeout(longPressTimer));
         el.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
 
-        // свайпы
         el.addEventListener('touchstart', function(e) {
           swipeState.startX = e.touches[0].clientX;
           swipeState.startY = e.touches[0].clientY;
@@ -704,7 +690,6 @@
           swipeState.currentElement = null;
         }, { passive: true });
 
-        // мышь
         el.addEventListener('mousedown', function(e) {
           mouseSwipeState.startX = e.clientX;
           mouseSwipeState.startY = e.clientY;
@@ -763,7 +748,9 @@
       const block = data[index];
       if (!block || block.live) return;
       ensureBlockHasTranslations(block);
+
       const nextLang = getNextLang(block.currentLang);
+
       if (nextLang === 'ru') {
         block.text = block.originalText;
         block.currentLang = 'ru';
@@ -771,7 +758,7 @@
         block.text = block.translations[nextLang];
         block.currentLang = nextLang;
       } else {
-        showToast(`⏳ Перевод на ${LANG_NAMES[nextLang]}...`);
+        showToast(`⏳ Перевод на ${LANG_FULL[nextLang]}...`);
         const translated = await translateText(block.originalText, nextLang);
         if (translated && translated !== block.originalText) {
           block.translations[nextLang] = translated;
@@ -783,7 +770,7 @@
         }
       }
       if (isArchive) renderArchiveBlocks(); else renderBlocks();
-      showToast(`✅ ${LANG_NAMES[block.currentLang]}`);
+      showToast(`✅ ${LANG_FULL[block.currentLang]}`);
     }
 
     async function handleSwipeRight(index, isArchive) {
@@ -791,7 +778,9 @@
       const block = data[index];
       if (!block || block.live) return;
       ensureBlockHasTranslations(block);
+
       const prevLang = getPrevLang(block.currentLang);
+
       if (prevLang === 'ru') {
         block.text = block.originalText;
         block.currentLang = 'ru';
@@ -799,7 +788,7 @@
         block.text = block.translations[prevLang];
         block.currentLang = prevLang;
       } else {
-        showToast(`⏳ ${LANG_NAMES[prevLang]}...`);
+        showToast(`⏳ Перевод на ${LANG_FULL[prevLang]}...`);
         const translated = await translateText(block.originalText, prevLang);
         if (translated && translated !== block.originalText) {
           block.translations[prevLang] = translated;
@@ -811,7 +800,7 @@
         }
       }
       if (isArchive) renderArchiveBlocks(); else renderBlocks();
-      showToast(`↩️ ${LANG_NAMES[block.currentLang]}`);
+      showToast(`↩️ ${LANG_FULL[block.currentLang]}`);
     }
 
     function updateButtons() {
@@ -1140,7 +1129,6 @@
     // Запись
     recordBtn.addEventListener('click', toggleRec);
 
-    // Горячие клавиши
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); toggleRec(); }
       if (e.key === 'Escape' && isRecording) { e.preventDefault(); stopRec(); }
