@@ -30,7 +30,7 @@
       flex-direction: column;
     }
 
-    /* ===== ОБЩИЕ БЛОКИ ===== */
+    /* ===== БЛОКИ ===== */
     .blocks-container {
       flex: 1 1 auto;
       min-height: 0;
@@ -78,18 +78,8 @@
       -webkit-overflow-scrolling: touch;
       padding-right: 4px;
     }
-    .block-text {
-      font-size: 16px;
-      line-height: 1.6;
-      color: #e8e8e8;
-      word-break: break-word;
-    }
-    .block-time {
-      font-size: 11px;
-      color: #888;
-      margin-top: 4px;
-      display: block;
-    }
+    .block-text { font-size: 16px; line-height: 1.6; color: #e8e8e8; word-break: break-word; }
+    .block-time { font-size: 11px; color: #888; margin-top: 4px; display: block; }
     .block .swipe-hint {
       position: absolute;
       top: 50%;
@@ -115,7 +105,7 @@
       border-top: 1px solid #2a2a2a;
       flex-shrink: 0;
     }
-    .btn-clear, .btn-copy, .btn-save, .btn-record, .btn-back {
+    .btn-clear, .btn-save, .btn-archive, .btn-record, .btn-back {
       border: none;
       border-radius: 50%;
       cursor: pointer;
@@ -127,10 +117,10 @@
       user-select: none;
       -webkit-user-select: none;
     }
-    .btn-clear:active, .btn-copy:active, .btn-save:active, .btn-record:active, .btn-back:active {
+    .btn-clear:active, .btn-save:active, .btn-archive:active, .btn-record:active, .btn-back:active {
       transform: scale(0.9);
     }
-    .btn-clear:disabled, .btn-copy:disabled, .btn-save:disabled {
+    .btn-clear:disabled, .btn-save:disabled, .btn-archive:disabled {
       opacity: 0.3;
       cursor: not-allowed;
       transform: none;
@@ -160,17 +150,17 @@
       color: #1a1a1a;
       box-shadow: 0 2px 8px rgba(66,165,245,0.3);
     }
-    .btn-copy {
+    .btn-archive {
       width: 56px;
       height: 56px;
       font-size: 24px;
       background: #3a3a3a;
       color: #999;
     }
-    .btn-copy.active {
-      background: #f9a825;
-      color: #1a1a1a;
-      box-shadow: 0 2px 8px rgba(249,168,37,0.3);
+    .btn-archive.active {
+      background: #2a2a2a;
+      color: #ffd700;
+      box-shadow: 0 2px 8px rgba(255,215,0,0.2);
     }
     .btn-record {
       width: 80px;
@@ -207,11 +197,7 @@
       touch-action: none;
     }
     .long-press-menu.active { display: flex; }
-    .long-press-menu .menu-buttons {
-      display: flex;
-      gap: 40px;
-      background: transparent;
-    }
+    .long-press-menu .menu-buttons { display: flex; gap: 40px; background: transparent; }
     .long-press-menu .menu-btn {
       width: 100px;
       height: 100px;
@@ -229,16 +215,10 @@
       box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     }
     .long-press-menu .menu-btn:active { transform: scale(0.9); }
-    .long-press-menu .menu-btn.delete {
-      background: #ff1744;
-      color: white;
-    }
-    .long-press-menu .menu-btn.archive {
-      background: #2a2a2a;
-      color: #ffd700;
-    }
+    .long-press-menu .menu-btn.delete { background: #ff1744; color: white; }
+    .long-press-menu .menu-btn.archive { background: #2a2a2a; color: #ffd700; }
 
-    /* ===== ЭКРАНЫ ===== */
+    /* ===== ЭКРАН АРХИВА ===== */
     .screen {
       position: absolute;
       top: 0; left: 0;
@@ -251,23 +231,28 @@
       border-radius: 24px;
       transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
       will-change: transform;
+      pointer-events: none;
     }
     .screen.main {
       transform: translateX(0);
       z-index: 2;
+      pointer-events: auto;
     }
     .screen.archive {
       transform: translateX(100%);
       z-index: 1;
+      pointer-events: none;
     }
     .app.archive-open .screen.main {
       transform: translateX(-30%);
+      pointer-events: none;
     }
     .app.archive-open .screen.archive {
       transform: translateX(0);
+      z-index: 3;
+      pointer-events: auto;
     }
 
-    /* Архивный хедер */
     .archive-header {
       display: flex;
       align-items: center;
@@ -277,13 +262,8 @@
       margin-bottom: 12px;
       flex-shrink: 0;
     }
-    .archive-header .title {
-      color: #e8e8e8;
-      font-size: 18px;
-      font-weight: 600;
-    }
+    .archive-header .title { color: #e8e8e8; font-size: 18px; font-weight: 600; }
 
-    /* Кнопки архива */
     .archive-buttons {
       display: flex;
       align-items: center;
@@ -294,7 +274,6 @@
       flex-shrink: 0;
     }
     .archive-buttons .btn-clear,
-    .archive-buttons .btn-copy,
     .archive-buttons .btn-save {
       width: 56px;
       height: 56px;
@@ -307,13 +286,11 @@
       background: #2196F3;
       color: white;
       box-shadow: 0 4px 12px rgba(33,150,243,0.4);
-      order: 2;
     }
     .archive-buttons .btn-clear { order: 0; }
-    .archive-buttons .btn-copy { order: 1; }
-    .archive-buttons .btn-save { order: 0; }
+    .archive-buttons .btn-save { order: 1; }
+    .archive-buttons .btn-back { order: 2; }
 
-    /* ===== TOAST ===== */
     .toast {
       position: fixed;
       bottom: 30px;
@@ -332,25 +309,20 @@
     }
     .toast.show { opacity: 1; }
 
-    /* ===== АДАПТАЦИЯ ===== */
     @media (max-height: 640px) {
       .app { max-height: 95vh; padding: 12px; }
       .block-text { font-size: 14px; line-height: 1.5; }
-      .btn-clear, .btn-copy, .btn-save { width: 48px; height: 48px; font-size: 20px; }
+      .btn-clear, .btn-save, .btn-archive { width: 48px; height: 48px; font-size: 20px; }
       .btn-record, .btn-back { width: 64px; height: 64px; font-size: 28px; }
       .buttons { gap: 10px; padding-top: 10px; }
-      .archive-buttons .btn-clear,
-      .archive-buttons .btn-copy,
-      .archive-buttons .btn-save { width: 48px; height: 48px; font-size: 20px; }
+      .archive-buttons .btn-clear, .archive-buttons .btn-save { width: 48px; height: 48px; font-size: 20px; }
       .archive-buttons .btn-back { width: 64px; height: 64px; font-size: 28px; }
     }
     @media (max-height: 500px) {
       .block-text { font-size: 13px; line-height: 1.4; }
-      .btn-clear, .btn-copy, .btn-save { width: 40px; height: 40px; font-size: 16px; }
+      .btn-clear, .btn-save, .btn-archive { width: 40px; height: 40px; font-size: 16px; }
       .btn-record, .btn-back { width: 56px; height: 56px; font-size: 24px; }
-      .archive-buttons .btn-clear,
-      .archive-buttons .btn-copy,
-      .archive-buttons .btn-save { width: 40px; height: 40px; font-size: 16px; }
+      .archive-buttons .btn-clear, .archive-buttons .btn-save { width: 40px; height: 40px; font-size: 16px; }
       .archive-buttons .btn-back { width: 56px; height: 56px; font-size: 24px; }
     }
   </style>
@@ -363,7 +335,7 @@
     <div class="buttons">
       <button class="btn-clear" id="clear" disabled>✕</button>
       <button class="btn-save" id="save" disabled>💾</button>
-      <button class="btn-copy" id="copy" disabled>📄</button>
+      <button class="btn-archive" id="archiveBtn" disabled>⭐</button>
       <button class="btn-record" id="record">▶</button>
     </div>
   </div>
@@ -377,7 +349,6 @@
     <div class="archive-buttons">
       <button class="btn-clear" id="clearArchive" disabled>✕</button>
       <button class="btn-save" id="saveArchive" disabled>💾</button>
-      <button class="btn-copy" id="copyArchive" disabled>📄</button>
       <button class="btn-back" id="backFromArchive">◀</button>
     </div>
   </div>
@@ -399,10 +370,9 @@
     const blocksArchiveEl = document.getElementById('blocksArchive');
     const recordBtn = document.getElementById('record');
     const saveBtn = document.getElementById('save');
-    const copyBtn = document.getElementById('copy');
+    const archiveBtn = document.getElementById('archiveBtn');
     const clearBtn = document.getElementById('clear');
     const saveArchiveBtn = document.getElementById('saveArchive');
-    const copyArchiveBtn = document.getElementById('copyArchive');
     const clearArchiveBtn = document.getElementById('clearArchive');
     const backFromArchiveBtn = document.getElementById('backFromArchive');
     const toast = document.getElementById('toast');
@@ -422,6 +392,7 @@
     let mouseSwipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
     let longPressTimer = null;
     let longPressTriggered = false;
+    let saveBtnPressTimer = null;
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -548,6 +519,7 @@
         }
         renderBlocks();
         renderArchiveBlocks();
+        updateArchiveButton();
       } catch (_) {}
     }
 
@@ -845,26 +817,41 @@
     function updateButtons() {
       const hasBlocks = blocksData.filter(b => !b.live).length > 0;
       if (hasBlocks) {
-        saveBtn.disabled = false; saveBtn.className = 'btn-save active';
-        copyBtn.disabled = false; copyBtn.className = 'btn-copy active';
-        clearBtn.disabled = false; clearBtn.className = 'btn-clear active';
+        saveBtn.disabled = false;
+        saveBtn.className = 'btn-save active';
+        clearBtn.disabled = false;
+        clearBtn.className = 'btn-clear active';
       } else {
-        saveBtn.disabled = true; saveBtn.className = 'btn-save';
-        copyBtn.disabled = true; copyBtn.className = 'btn-copy';
-        clearBtn.disabled = true; clearBtn.className = 'btn-clear';
+        saveBtn.disabled = true;
+        saveBtn.className = 'btn-save';
+        clearBtn.disabled = true;
+        clearBtn.className = 'btn-clear';
+      }
+      updateArchiveButton();
+    }
+
+    function updateArchiveButton() {
+      if (archiveData.length > 0) {
+        archiveBtn.disabled = false;
+        archiveBtn.className = 'btn-archive active';
+      } else {
+        archiveBtn.disabled = true;
+        archiveBtn.className = 'btn-archive';
       }
     }
 
     function updateArchiveButtons() {
       const hasBlocks = archiveData.length > 0;
       if (hasBlocks) {
-        saveArchiveBtn.disabled = false; saveArchiveBtn.className = 'btn-save active';
-        copyArchiveBtn.disabled = false; copyArchiveBtn.className = 'btn-copy active';
-        clearArchiveBtn.disabled = false; clearArchiveBtn.className = 'btn-clear active';
+        saveArchiveBtn.disabled = false;
+        saveArchiveBtn.className = 'btn-save active';
+        clearArchiveBtn.disabled = false;
+        clearArchiveBtn.className = 'btn-clear active';
       } else {
-        saveArchiveBtn.disabled = true; saveArchiveBtn.className = 'btn-save';
-        copyArchiveBtn.disabled = true; copyArchiveBtn.className = 'btn-copy';
-        clearArchiveBtn.disabled = true; clearArchiveBtn.className = 'btn-clear';
+        saveArchiveBtn.disabled = true;
+        saveArchiveBtn.className = 'btn-save';
+        clearArchiveBtn.disabled = true;
+        clearArchiveBtn.className = 'btn-clear';
       }
     }
 
@@ -990,14 +977,14 @@
       return data.length ? data.map(b => `${b.time}  ${b.text}`).join('\n\n') : '';
     }
 
-    function copyText(data, isArchive) {
+    function copyToClipboard(data) {
       const text = getFullTextWithTimestamps(data);
       if (!text) { showToast('❌ Нет текста'); return; }
       navigator.clipboard.writeText(text).then(() => showToast('✅ Скопировано в буфер'))
         .catch(() => showToast('❌ Ошибка копирования'));
     }
 
-    function saveFile(data, isArchive) {
+    function downloadAsFile(data) {
       const text = getFullTextWithTimestamps(data);
       if (!text) { showToast('❌ Нет текста'); return; }
       const now = new Date();
@@ -1024,10 +1011,11 @@
         archiveData = [];
         renderArchiveBlocks();
         showToast('🗑 Архив очищен');
+        updateArchiveButton();
       }
     }
 
-    // Меню
+    // Меню долгого нажатия
     menuDelete.addEventListener('click', function() {
       longPressMenu.classList.remove('active');
       const idx = longPressMenu._targetIndex;
@@ -1048,77 +1036,94 @@
           blocksData.splice(idx, 1);
           renderBlocks();
           renderArchiveBlocks();
+          updateArchiveButton();
           showToast('⭐ Блок заархивирован');
         }
       }
     });
 
     longPressMenu.addEventListener('click', function(e) {
-      if (e.target === this) {
-        this.classList.remove('active');
+      if (e.target === this) this.classList.remove('active');
+    });
+
+    // Кнопка «💾» на основном экране — короткое/долгое нажатие
+    function handleSavePress(isLong) {
+      const data = blocksData.filter(b => !b.live);
+      if (data.length === 0) { showToast('❌ Нет текста'); return; }
+      if (isLong) {
+        downloadAsFile(data);
+      } else {
+        copyToClipboard(data);
+      }
+    }
+
+    saveBtn.addEventListener('pointerdown', function(e) {
+      saveBtnPressTimer = setTimeout(() => {
+        handleSavePress(true);
+        saveBtnPressTimer = null;
+      }, 700);
+    });
+
+    saveBtn.addEventListener('pointerup', function(e) {
+      if (saveBtnPressTimer) {
+        clearTimeout(saveBtnPressTimer);
+        saveBtnPressTimer = null;
+        handleSavePress(false);
       }
     });
 
-    // Переключение экранов
-    function openArchive() {
+    saveBtn.addEventListener('pointerleave', function(e) {
+      if (saveBtnPressTimer) {
+        clearTimeout(saveBtnPressTimer);
+        saveBtnPressTimer = null;
+      }
+    });
+
+    // Кнопка «💾» на архивном экране — короткое/долгое нажатие
+    function handleArchiveSavePress(isLong) {
+      if (archiveData.length === 0) { showToast('❌ Нет текста в архиве'); return; }
+      if (isLong) {
+        downloadAsFile(archiveData);
+      } else {
+        copyToClipboard(archiveData);
+      }
+    }
+
+    saveArchiveBtn.addEventListener('pointerdown', function(e) {
+      saveBtnPressTimer = setTimeout(() => {
+        handleArchiveSavePress(true);
+        saveBtnPressTimer = null;
+      }, 700);
+    });
+
+    saveArchiveBtn.addEventListener('pointerup', function(e) {
+      if (saveBtnPressTimer) {
+        clearTimeout(saveBtnPressTimer);
+        saveBtnPressTimer = null;
+        handleArchiveSavePress(false);
+      }
+    });
+
+    saveArchiveBtn.addEventListener('pointerleave', function(e) {
+      if (saveBtnPressTimer) {
+        clearTimeout(saveBtnPressTimer);
+        saveBtnPressTimer = null;
+      }
+    });
+
+    // Открытие архива
+    archiveBtn.addEventListener('click', function() {
+      if (archiveData.length === 0) return;
       app.classList.add('archive-open');
       renderArchiveBlocks();
-    }
+    });
 
-    function closeArchive() {
+    // Закрытие архива
+    backFromArchiveBtn.addEventListener('click', function() {
       app.classList.remove('archive-open');
-    }
+    });
 
-    // Свайп вправо по пустому месту на основном экране — открыть архив
-    blocksEl.addEventListener('touchstart', function(e) {
-      if (e.target.closest('.block')) return;
-      const touch = e.touches[0];
-      swipeState.startX = touch.clientX;
-      swipeState.startY = touch.clientY;
-      swipeState.isSwiping = false;
-    }, { passive: true });
-
-    blocksEl.addEventListener('touchmove', function(e) {
-      if (e.target.closest('.block')) return;
-      if (app.classList.contains('archive-open')) return;
-      const touch = e.touches[0];
-      const deltaX = touch.clientX - swipeState.startX;
-      const deltaY = touch.clientY - swipeState.startY;
-      if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) return;
-      if (deltaX > 50) {
-        e.preventDefault();
-        openArchive();
-      }
-    }, { passive: false });
-
-    // Закрытие архива свайпом влево по пустому месту
-    blocksArchiveEl.addEventListener('touchstart', function(e) {
-      if (e.target.closest('.block')) return;
-      const touch = e.touches[0];
-      swipeState.startX = touch.clientX;
-      swipeState.startY = touch.clientY;
-      swipeState.isSwiping = false;
-    }, { passive: true });
-
-    blocksArchiveEl.addEventListener('touchmove', function(e) {
-      if (e.target.closest('.block')) return;
-      if (!app.classList.contains('archive-open')) return;
-      const touch = e.touches[0];
-      const deltaX = touch.clientX - swipeState.startX;
-      const deltaY = touch.clientY - swipeState.startY;
-      if (Math.abs(deltaY) > Math.abs(deltaX) * 0.5) return;
-      if (deltaX < -50) {
-        e.preventDefault();
-        closeArchive();
-      }
-    }, { passive: false });
-
-    backFromArchiveBtn.addEventListener('click', closeArchive);
-
-    // Кнопки
-    recordBtn.addEventListener('click', toggleRec);
-    saveBtn.addEventListener('click', () => saveFile(blocksData.filter(b => !b.live), false));
-    copyBtn.addEventListener('click', () => copyText(blocksData.filter(b => !b.live), false));
+    // Очистка основного экрана
     clearBtn.addEventListener('click', function() {
       const hasBlocks = blocksData.filter(b => !b.live).length > 0;
       if (!hasBlocks) { showToast('Нет блоков для очистки'); return; }
@@ -1129,10 +1134,13 @@
       }
     });
 
-    saveArchiveBtn.addEventListener('click', () => saveFile(archiveData, true));
-    copyArchiveBtn.addEventListener('click', () => copyText(archiveData, true));
+    // Очистка архива
     clearArchiveBtn.addEventListener('click', clearArchive);
 
+    // Запись
+    recordBtn.addEventListener('click', toggleRec);
+
+    // Горячие клавиши
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); toggleRec(); }
       if (e.key === 'Escape' && isRecording) { e.preventDefault(); stopRec(); }
