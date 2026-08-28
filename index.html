@@ -407,55 +407,71 @@
     let longPressTriggered = false;
     let saveBtnPressTimer = null;
 
-    // ===================== ОЗВУЧКА (Edge TTS через альтернативный прокси) =====================
-    let audioContext = null;
-    let currentAudioSource = null;
+    // ===================== ОЗВУЧКА (SpeechSynthesis API) =====================
+    let currentUtterance = null;
     let currentSpeakingBlock = null;
 
-    const VOICE_MAP = {
-      ru: 'ru-RU-SvetlanaNeural',
-      en: 'en-US-JennyNeural',
-      es: 'es-ES-ElviraNeural',
-      tr: 'tr-TR-EmelNeural'
-    };
+    function speakBlock(block) {
+      if (!block || block.live) return;
+      const text = block.text;
+      if (!text || !text.trim()) {
+        showToast('Нет текста для озвучки');
+        return;
+      }
 
-    async function getTTSAudio(text, lang) {
-      const voice = VOICE_MAP[lang] || VOICE_MAP.ru;
-      // Используем альтернативный прокси, который точно работает
-      const url = `https://tts.m1guelpf.me/api/tts?text=${encodeURIComponent(text)}&voice=${voice}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('TTS API error');
-      return await response.arrayBuffer();
+      const lang = block.currentLang || 'ru';
+
+      // Если уже говорит этот же блок — останавливаем
+      if (currentSpeakingBlock && currentSpeakingBlock === block) {
+        window.speechSynthesis.cancel();
+        currentUtterance = null;
+        currentSpeakingBlock = null;
+        showToast('⏹ Остановлено');
+        return;
+      }
+
+      // Останавливаем всё, что играет
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = lang;
+
+      // Подбираем голос
+      const voices = window.speechSynthesis.getVoices();
+      const voice = voices.find(v => v.lang.startsWith(lang)) || null;
+      if (voice) utterance.voice = voice;
+
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      utterance.onstart = () => {
+        currentSpeakingBlock = block;
+        currentUtterance = utterance;
+        showToast(`🔊 ${LANG_FULL[lang] || lang}`);
+      };
+
+      utterance.onend = () => {
+        currentSpeakingBlock = null;
+        currentUtterance = null;
+        showToast('✅ Озвучка завершена');
+      };
+
+      utterance.onerror = () => {
+        currentSpeakingBlock = null;
+        currentUtterance = null;
+        showToast('❌ Ошибка озвучки');
+      };
+
+      window.speechSynthesis.speak(utterance);
     }
 
-    function playAudio(arrayBuffer) {
-      if (audioContext && audioContext.state === 'running') {
-        audioContext.close();
-      }
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      return audioContext.decodeAudioData(arrayBuffer).then(buffer => {
-        const source = audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        source.start(0);
-        currentAudioSource = source;
-        return source;
-      });
-    }
-
-    function stopAudio() {
-      if (currentAudioSource) {
-        try {
-          currentAudioSource.stop();
-          currentAudioSource.disconnect();
-        } catch (_) {}
-        currentAudioSource = null;
-      }
-      if (audioContext && audioContext.state === 'running') {
-        audioContext.close();
-        audioContext = null;
-      }
-      currentSpeakingBlock = null;
+    // Прогрев голосов (некоторые браузеры подгружают голоса асинхронно)
+    if (window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
     }
 
     // ===================== ОСТАЛЬНАЯ ЛОГИКА =====================
@@ -1087,38 +1103,7 @@
     menuSpeak.addEventListener('click', function() {
       longPressMenu.classList.remove('active');
       const block = getTargetBlock();
-      if (!block || block.live) return;
-
-      const text = block.text;
-      if (!text || !text.trim()) {
-        showToast('Нет текста для озвучки');
-        return;
-      }
-
-      const lang = block.currentLang || 'ru';
-
-      if (currentSpeakingBlock && currentSpeakingBlock.block === block) {
-        stopAudio();
-        showToast('⏹ Остановлено');
-        return;
-      }
-
-      stopAudio();
-
-      showToast(`🔊 Озвучка...`);
-      getTTSAudio(text, lang).then(audioData => {
-        return playAudio(audioData);
-      }).then(source => {
-        currentSpeakingBlock = { block };
-        source.onended = () => {
-          currentSpeakingBlock = null;
-          showToast('✅ Озвучка завершена');
-        };
-        showToast(`🔊 ${LANG_FULL[lang] || lang}`);
-      }).catch(err => {
-        console.error('TTS error:', err);
-        showToast('❌ Ошибка озвучки');
-      });
+      speakBlock(block);
     });
 
     menuArchive.addEventListener('click', function() {
