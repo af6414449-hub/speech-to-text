@@ -96,6 +96,32 @@
     .block.swiping-left .swipe-hint.left { opacity: 1; }
     .block.swiping-right .swipe-hint.right { opacity: 1; }
 
+    /* ===== КНОПКА ОЗВУЧКИ ===== */
+    .btn-speak {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.08);
+      color: #ccc;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      z-index: 2;
+    }
+    .btn-speak:active { transform: scale(0.8); }
+    .btn-speak:hover { background: rgba(255,255,255,0.15); color: #fff; }
+    .btn-speak.playing { color: #42a5f5; background: rgba(66,165,245,0.2); }
+
     .buttons {
       display: flex;
       align-items: center;
@@ -208,15 +234,15 @@
     .long-press-menu.active { display: flex; }
     .long-press-menu .menu-buttons {
       display: flex;
-      gap: 30px;
+      gap: 40px;
       background: transparent;
     }
     .long-press-menu .menu-btn {
-      width: 80px;
-      height: 80px;
+      width: 100px;
+      height: 100px;
       border-radius: 50%;
       border: none;
-      font-size: 36px;
+      font-size: 48px;
       cursor: pointer;
       transition: 0.2s;
       display: flex;
@@ -227,9 +253,8 @@
       -webkit-user-select: none;
       box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     }
-    .long-press-menu .menu-btn:active { transform: scale(0.85); }
+    .long-press-menu .menu-btn:active { transform: scale(0.9); }
     .long-press-menu .menu-btn.delete { background: #ff1744; color: white; }
-    .long-press-menu .menu-btn.speak { background: #42a5f5; color: white; }
     .long-press-menu .menu-btn.archive { background: #2a2a2a; color: #ffd700; }
 
     .screen {
@@ -368,7 +393,6 @@
   <div class="long-press-menu" id="longPressMenu">
     <div class="menu-buttons">
       <button class="menu-btn delete" id="menuDelete">✕</button>
-      <button class="menu-btn speak" id="menuSpeak">🔊</button>
       <button class="menu-btn archive" id="menuArchive">⭐</button>
     </div>
   </div>
@@ -390,7 +414,6 @@
     const toast = document.getElementById('toast');
     const longPressMenu = document.getElementById('longPressMenu');
     const menuDelete = document.getElementById('menuDelete');
-    const menuSpeak = document.getElementById('menuSpeak');
     const menuArchive = document.getElementById('menuArchive');
 
     let isRecording = false;
@@ -426,12 +449,15 @@
         window.speechSynthesis.cancel();
         currentUtterance = null;
         currentSpeakingBlock = null;
+        // Убираем подсветку
+        document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
         showToast('⏹ Остановлено');
         return;
       }
 
       // Останавливаем всё, что играет
       window.speechSynthesis.cancel();
+      document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
@@ -448,25 +474,32 @@
       utterance.onstart = () => {
         currentSpeakingBlock = block;
         currentUtterance = utterance;
+        // Подсвечиваем кнопку
+        document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
+        const btn = document.querySelector(`.btn-speak[data-block-id="${blocksData.indexOf(block)}"][data-archive="false"]`) ||
+                     document.querySelector(`.btn-speak[data-archive-id="${archiveData.indexOf(block)}"][data-archive="true"]`);
+        if (btn) btn.classList.add('playing');
         showToast(`🔊 ${LANG_FULL[lang] || lang}`);
       };
 
       utterance.onend = () => {
         currentSpeakingBlock = null;
         currentUtterance = null;
+        document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
         showToast('✅ Озвучка завершена');
       };
 
       utterance.onerror = () => {
         currentSpeakingBlock = null;
         currentUtterance = null;
+        document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
         showToast('❌ Ошибка озвучки');
       };
 
       window.speechSynthesis.speak(utterance);
     }
 
-    // Прогрев голосов (некоторые браузеры подгружают голоса асинхронно)
+    // Прогрев голосов
     if (window.speechSynthesis) {
       window.speechSynthesis.getVoices();
       window.speechSynthesis.onvoiceschanged = () => {
@@ -633,6 +666,7 @@
           <div class="${blockClass}" data-index="${realIndex}" style="border-left-color: ${borderColor};">
             <div class="block-text">${escapeHtml(block.text)}</div>
             <span class="block-time">${block.time} ${langLabel}</span>
+            ${!isLive ? `<button class="btn-speak" data-block-id="${realIndex}" data-archive="false" aria-label="Озвучить">🔊</button>` : ''}
             <span class="swipe-hint left">← перевести</span>
             <span class="swipe-hint right">↩ отмена</span>
           </div>
@@ -642,6 +676,14 @@
       attachEvents(blocksEl, false);
       updateButtons();
       saveToStorage();
+      // Обработчики кнопок озвучки
+      document.querySelectorAll('.btn-speak[data-archive="false"]').forEach(btn => {
+        const blockId = parseInt(btn.dataset.blockId);
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          speakBlock(blocksData[blockId]);
+        });
+      });
     }
 
     function renderArchiveBlocks() {
@@ -664,6 +706,7 @@
           <div class="${blockClass}" data-archive-index="${index}" style="border-left-color: ${borderColor};">
             <div class="block-text">${escapeHtml(block.text)}</div>
             <span class="block-time">${block.time} ${langLabel}</span>
+            <button class="btn-speak" data-archive-id="${index}" data-archive="true" aria-label="Озвучить">🔊</button>
             <span class="swipe-hint left">← перевести</span>
             <span class="swipe-hint right">↩ отмена</span>
           </div>
@@ -673,6 +716,14 @@
       attachEvents(blocksArchiveEl, true);
       updateArchiveButtons();
       saveToStorage();
+      // Обработчики кнопок озвучки в архиве
+      document.querySelectorAll('.btn-speak[data-archive="true"]').forEach(btn => {
+        const blockId = parseInt(btn.dataset.archiveId);
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          speakBlock(archiveData[blockId]);
+        });
+      });
     }
 
     function attachEvents(container, isArchive) {
@@ -682,6 +733,7 @@
 
         el.addEventListener('click', function(e) {
           if (longPressTriggered) { longPressTriggered = false; return; }
+          if (e.target.closest('.btn-speak')) return;
           const data = isArchive ? archiveData : blocksData;
           if (!data[idx] || data[idx].live) return;
           data[idx].collapsed = !data[idx].collapsed;
@@ -689,6 +741,7 @@
         });
 
         el.addEventListener('pointerdown', function(e) {
+          if (e.target.closest('.btn-speak')) return;
           longPressTriggered = false;
           longPressTimer = setTimeout(() => {
             longPressTriggered = true;
@@ -702,7 +755,6 @@
               }
             } else {
               longPressMenu._targetIndex = idx;
-              longPressMenu._isArchive = false;
               longPressMenu.classList.add('active');
             }
           }, 700);
@@ -711,6 +763,7 @@
         el.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
 
         el.addEventListener('touchstart', function(e) {
+          if (e.target.closest('.btn-speak')) return;
           swipeState.startX = e.touches[0].clientX;
           swipeState.startY = e.touches[0].clientY;
           swipeState.isSwiping = false;
@@ -763,6 +816,7 @@
         }, { passive: true });
 
         el.addEventListener('mousedown', function(e) {
+          if (e.target.closest('.btn-speak')) return;
           mouseSwipeState.startX = e.clientX;
           mouseSwipeState.startY = e.clientY;
           mouseSwipeState.isSwiping = false;
@@ -1076,58 +1130,36 @@
       }
     }
 
-    // ===================== МЕНЮ ДОЛГОГО НАЖАТИЯ =====================
-    function getTargetBlock() {
-      const idx = longPressMenu._targetIndex;
-      const isArchive = longPressMenu._isArchive || false;
-      const data = isArchive ? archiveData : blocksData;
-      return data[idx];
-    }
-
     menuDelete.addEventListener('click', function() {
       longPressMenu.classList.remove('active');
       const idx = longPressMenu._targetIndex;
-      const isArchive = longPressMenu._isArchive || false;
-      if (idx === undefined) return;
-      if (isArchive) {
-        archiveData.splice(idx, 1);
-        renderArchiveBlocks();
-        showToast('🗑 Блок удалён из архива');
-      } else {
+      if (idx !== undefined) {
         blocksData.splice(idx, 1);
         renderBlocks();
         showToast('🗑 Блок удалён');
       }
     });
 
-    menuSpeak.addEventListener('click', function() {
-      longPressMenu.classList.remove('active');
-      const block = getTargetBlock();
-      speakBlock(block);
-    });
-
     menuArchive.addEventListener('click', function() {
       longPressMenu.classList.remove('active');
       const idx = longPressMenu._targetIndex;
-      if (idx === undefined) return;
-      const block = blocksData[idx];
-      if (block && !block.live) {
-        archiveData.push({ ...block, live: false });
-        blocksData.splice(idx, 1);
-        renderBlocks();
-        renderArchiveBlocks();
-        updateArchiveButton();
-        showToast('⭐ Блок заархивирован');
+      if (idx !== undefined) {
+        const block = blocksData[idx];
+        if (block && !block.live) {
+          archiveData.push({ ...block, live: false });
+          blocksData.splice(idx, 1);
+          renderBlocks();
+          renderArchiveBlocks();
+          updateArchiveButton();
+          showToast('⭐ Блок заархивирован');
+        }
       }
     });
 
     longPressMenu.addEventListener('click', function(e) {
-      if (e.target === this) {
-        this.classList.remove('active');
-      }
+      if (e.target === this) this.classList.remove('active');
     });
 
-    // ===================== ОСТАЛЬНЫЕ КНОПКИ =====================
     function handleSavePress(isLong) {
       const data = blocksData.filter(b => !b.live);
       if (data.length === 0) { showToast('❌ Нет текста'); return; }
