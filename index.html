@@ -536,7 +536,7 @@
     async function autoFixText(text) {
       if (!text || text.length < 50) return text;
       try {
-        const prompt = `Исправь ошибки в этом русском тексте и расставь знаки препинания (точки, запятые, вопросительные знаки). Верни только исправленный текст. Текст:\n\n${text}`;
+        const prompt = `Исправь ошибки в этом русском тексте. Расставь знаки препинания: точки в конце предложений, запятые между частями сложного предложения (перед союзами "но", "а", "чтобы", "потому что" и т.д.), вопросительные знаки где нужно. Верни только исправленный текст. Пример: "я хотел пойти гулять но пошёл дождь" → "Я хотел пойти гулять, но пошёл дождь." Текст:\n\n${text}`;
         const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}`;
         const response = await fetch(url, {
           headers: { 'Authorization': `Bearer ${POLLINATIONS_KEY}` }
@@ -1035,7 +1035,7 @@
       if (!live && !text.trim()) return;
       if (live && text === undefined) text = ' ';
       const block = {
-        text: live ? text : text, // временно, потом заменим
+        text: live ? text : text,
         originalText: text,
         translations: {},
         currentLang: 'ru',
@@ -1130,7 +1130,6 @@
             if (accumulatedText.trim()) {
               const newIdx = addBlock(accumulatedText, false);
               accumulatedText = '';
-              // Обрабатываем текст асинхронно
               finalizeBlock(newIdx);
             }
             renderBlocks();
