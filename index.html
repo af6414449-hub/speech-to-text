@@ -81,6 +81,11 @@
     }
     .block-text { font-size: 16px; line-height: 1.6; color: #e8e8e8; word-break: break-word; }
     .block-time { font-size: 11px; color: #888; margin-top: 4px; display: block; }
+    .block-status {
+      font-size: 14px;
+      margin-left: 8px;
+      display: inline-block;
+    }
     .block .swipe-hint {
       position: absolute;
       top: 50%;
@@ -532,7 +537,7 @@
       if (!block.currentLang) block.currentLang = 'ru';
     }
 
-    // ===================== АВТОИСПРАВЛЕНИЕ =====================
+    // ===================== АВТОИСПРАВЛЕНИЕ С СТАТУСОМ =====================
     async function autoFixText(text) {
       if (!text || text.length < 50) return text;
       try {
@@ -545,7 +550,7 @@
         const fixed = await response.text();
         return fixed.trim() || text;
       } catch (e) {
-        console.warn('Auto-fix failed, using original:', e);
+        console.warn('Auto-fix failed:', e);
         return null;
       }
     }
@@ -611,7 +616,8 @@
             ...b, collapsed: b.collapsed !== undefined ? b.collapsed : true,
             live: false, translations: b.translations || {},
             currentLang: b.currentLang || 'ru',
-            originalText: b.originalText || b.text
+            originalText: b.originalText || b.text,
+            status: b.status || 'done'
           }));
         }
         const rawArchive = localStorage.getItem('archiveBlocks');
@@ -621,7 +627,8 @@
             ...b, collapsed: b.collapsed !== undefined ? b.collapsed : true,
             live: false, translations: b.translations || {},
             currentLang: b.currentLang || 'ru',
-            originalText: b.originalText || b.text
+            originalText: b.originalText || b.text,
+            status: b.status || 'done'
           }));
         }
         renderBlocks();
@@ -653,11 +660,31 @@
       return result;
     }
 
-    async function processText(text) {
-      if (!text || text.length < 50) return postProcessText(text);
-      const fixed = await autoFixText(text);
-      if (fixed !== null && fixed !== text) return fixed;
-      return postProcessText(text);
+    async function processText(text, block) {
+      if (!text || text.length < 50) {
+        block.status = 'done';
+        return postProcessText(text);
+      }
+      
+      block.status = 'processing';
+      renderBlocks();
+      
+      try {
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout')), 5000);
+        });
+        const fixPromise = autoFixText(text);
+        const fixed = await Promise.race([fixPromise, timeoutPromise]);
+        if (fixed !== null && fixed !== text) {
+          block.status = 'done';
+          return fixed;
+        }
+        block.status = 'error';
+        return postProcessText(text);
+      } catch (e) {
+        block.status = 'error';
+        return postProcessText(text);
+      }
     }
 
     function renderBlocks() {
@@ -681,10 +708,17 @@
         else if (block.currentLang === 'de') borderColor = '#9c27b0';
         else if (block.currentLang === 'vi') borderColor = '#4caf50';
         const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}`;
+        
+        let statusIcon = '';
+        if (!isLive) {
+          if (block.status === 'processing') statusIcon = ' ⏳';
+          else if (block.status === 'error') statusIcon = ' ❌';
+        }
+        
         html += `
           <div class="${blockClass}" data-index="${realIndex}" style="border-left-color: ${borderColor};">
             <div class="block-text">${escapeHtml(block.text)}</div>
-            <span class="block-time">${block.time} ${langLabel}</span>
+            <span class="block-time">${block.time} ${langLabel}${statusIcon}</span>
             ${!isLive ? `<button class="btn-speak" data-block-id="${realIndex}" data-archive="false" aria-label="Озвучить">🔊</button>` : ''}
             <span class="swipe-hint left">← удалить</span>
             <span class="swipe-hint right">→ архив</span>
@@ -722,10 +756,15 @@
         else if (block.currentLang === 'de') borderColor = '#9c27b0';
         else if (block.currentLang === 'vi') borderColor = '#4caf50';
         const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'}`;
+        
+        let statusIcon = '';
+        if (block.status === 'processing') statusIcon = ' ⏳';
+        else if (block.status === 'error') statusIcon = ' ❌';
+        
         html += `
           <div class="${blockClass}" data-archive-index="${index}" style="border-left-color: ${borderColor};">
             <div class="block-text">${escapeHtml(block.text)}</div>
-            <span class="block-time">${block.time} ${langLabel}</span>
+            <span class="block-time">${block.time} ${langLabel}${statusIcon}</span>
             <button class="btn-speak" data-archive-id="${index}" data-archive="true" aria-label="Озвучить">🔊</button>
             <span class="swipe-hint left">← удалить</span>
             <span class="swipe-hint right">→ вернуть</span>
@@ -1041,7 +1080,8 @@
         currentLang: 'ru',
         time: live ? '...' : getFullTimestamp(),
         collapsed: !live,
-        live: live
+        live: live,
+        status: live ? 'done' : 'processing'
       };
       blocksData.push(block);
       renderBlocks();
@@ -1051,7 +1091,7 @@
     async function finalizeBlock(index) {
       const block = blocksData[index];
       if (!block || block.live) return;
-      const fixed = await processText(block.originalText);
+      const fixed = await processText(block.originalText, block);
       block.text = fixed;
       renderBlocks();
       saveToStorage();
