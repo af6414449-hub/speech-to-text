@@ -532,11 +532,11 @@
       if (!block.currentLang) block.currentLang = 'ru';
     }
 
-    // ===================== АВТОИСПРАВЛЕНИЕ С FALLBACK =====================
+    // ===================== АВТОИСПРАВЛЕНИЕ =====================
     async function autoFixText(text) {
       if (!text || text.length < 50) return text;
       try {
-        const prompt = `Исправь ошибки в тексте, расставь знаки препинания, сделай текст читаемым. Верни только исправленный текст. Не добавляй пояснений. Текст:\n\n${text}`;
+        const prompt = `Исправь ошибки в этом русском тексте и расставь знаки препинания (точки, запятые, вопросительные знаки). Верни только исправленный текст. Текст:\n\n${text}`;
         const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}`;
         const response = await fetch(url, {
           headers: { 'Authorization': `Bearer ${POLLINATIONS_KEY}` }
@@ -545,8 +545,8 @@
         const fixed = await response.text();
         return fixed.trim() || text;
       } catch (e) {
-        console.warn('Auto-fix failed, fallback to local processing:', e);
-        return null; // возвращаем null, чтобы использовать fallback
+        console.warn('Auto-fix failed, using original:', e);
+        return null;
       }
     }
 
@@ -654,16 +654,9 @@
     }
 
     async function processText(text) {
-      // Если текст короткий — сразу обрабатываем локально
-      if (!text || text.length < 50) {
-        return postProcessText(text);
-      }
-      // Пробуем AI
+      if (!text || text.length < 50) return postProcessText(text);
       const fixed = await autoFixText(text);
-      if (fixed !== null && fixed !== text) {
-        return fixed;
-      }
-      // Fallback на локальную обработку
+      if (fixed !== null && fixed !== text) return fixed;
       return postProcessText(text);
     }
 
@@ -1038,18 +1031,11 @@
       }
     }
 
-    async function addBlock(text, live = false) {
+    function addBlock(text, live = false) {
       if (!live && !text.trim()) return;
       if (live && text === undefined) text = ' ';
-      
-      let finalText = text;
-      if (!live) {
-        // Для сохранённых блоков применяем обработку
-        finalText = await processText(text);
-      }
-
       const block = {
-        text: finalText,
+        text: live ? text : text, // временно, потом заменим
         originalText: text,
         translations: {},
         currentLang: 'ru',
@@ -1060,6 +1046,15 @@
       blocksData.push(block);
       renderBlocks();
       return blocksData.length - 1;
+    }
+
+    async function finalizeBlock(index) {
+      const block = blocksData[index];
+      if (!block || block.live) return;
+      const fixed = await processText(block.originalText);
+      block.text = fixed;
+      renderBlocks();
+      saveToStorage();
     }
 
     function scrollToBottom() {
@@ -1073,7 +1068,7 @@
 
     function updateLiveBlock() {
       if (liveBlockIndex >= 0 && blocksData[liveBlockIndex]) {
-        blocksData[liveBlockIndex].text = fixDoubleSpaces(accumulatedText || ' ');
+        blocksData[liveBlockIndex].text = accumulatedText || ' ';
         blocksData[liveBlockIndex].collapsed = false;
         renderBlocks();
         scrollToBottom();
@@ -1127,13 +1122,16 @@
           } else {
             isRecording = false;
             recognition._manualStop = false;
+            const liveIdx = liveBlockIndex;
             if (liveBlockIndex >= 0) {
               blocksData.splice(liveBlockIndex, 1);
               liveBlockIndex = -1;
             }
             if (accumulatedText.trim()) {
-              addBlock(accumulatedText, false);
+              const newIdx = addBlock(accumulatedText, false);
               accumulatedText = '';
+              // Обрабатываем текст асинхронно
+              finalizeBlock(newIdx);
             }
             renderBlocks();
             recordBtn.textContent = '▶';
@@ -1147,7 +1145,9 @@
       accumulatedText = '';
       recordBtn.textContent = '■';
       recordBtn.className = 'btn-record active';
-      if (liveBlockIndex === -1) liveBlockIndex = addBlock(' ', true);
+      if (liveBlockIndex === -1) {
+        liveBlockIndex = addBlock(' ', true);
+      }
       renderBlocks();
       scrollToBottom();
       try { recognition.start(); } catch(_) {}
