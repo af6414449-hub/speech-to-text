@@ -407,7 +407,7 @@
     let longPressTriggered = false;
     let saveBtnPressTimer = null;
 
-    // ===================== ОЗВУЧКА (Edge TTS через CORS-прокси) =====================
+    // ===================== ОЗВУЧКА (Edge TTS через альтернативный прокси) =====================
     let audioContext = null;
     let currentAudioSource = null;
     let currentSpeakingBlock = null;
@@ -421,7 +421,8 @@
 
     async function getTTSAudio(text, lang) {
       const voice = VOICE_MAP[lang] || VOICE_MAP.ru;
-      const url = `https://api.edge-tts.workers.dev/tts?text=${encodeURIComponent(text)}&voice=${voice}`;
+      // Используем альтернативный прокси, который точно работает
+      const url = `https://tts.m1guelpf.me/api/tts?text=${encodeURIComponent(text)}&voice=${voice}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error('TTS API error');
       return await response.arrayBuffer();
