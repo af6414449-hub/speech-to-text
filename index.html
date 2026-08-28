@@ -96,7 +96,6 @@
     .block.swiping-left .swipe-hint.left { opacity: 1; }
     .block.swiping-right .swipe-hint.right { opacity: 1; }
 
-    /* ===== КНОПКА ОЗВУЧКИ ===== */
     .btn-speak {
       position: absolute;
       top: 12px;
@@ -234,15 +233,21 @@
     .long-press-menu.active { display: flex; }
     .long-press-menu .menu-buttons {
       display: flex;
-      gap: 40px;
-      background: transparent;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 360px;
+      background: rgba(30,30,30,0.9);
+      padding: 20px;
+      border-radius: 20px;
+      backdrop-filter: blur(8px);
     }
     .long-press-menu .menu-btn {
-      width: 100px;
-      height: 100px;
+      width: 64px;
+      height: 64px;
       border-radius: 50%;
       border: none;
-      font-size: 48px;
+      font-size: 28px;
       cursor: pointer;
       transition: 0.2s;
       display: flex;
@@ -251,11 +256,11 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
       -webkit-user-select: none;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      background: #2a2a2a;
     }
-    .long-press-menu .menu-btn:active { transform: scale(0.9); }
-    .long-press-menu .menu-btn.delete { background: #ff1744; color: white; }
-    .long-press-menu .menu-btn.archive { background: #2a2a2a; color: #ffd700; }
+    .long-press-menu .menu-btn:active { transform: scale(0.85); }
+    .long-press-menu .menu-btn.active-lang { border: 2px solid #42a5f5; }
 
     .screen {
       position: absolute;
@@ -391,10 +396,7 @@
   </div>
 
   <div class="long-press-menu" id="longPressMenu">
-    <div class="menu-buttons">
-      <button class="menu-btn delete" id="menuDelete">✕</button>
-      <button class="menu-btn archive" id="menuArchive">⭐</button>
-    </div>
+    <div class="menu-buttons" id="menuButtons"></div>
   </div>
   <div class="toast" id="toast"></div>
 </div>
@@ -413,8 +415,7 @@
     const backFromArchiveBtn = document.getElementById('backFromArchive');
     const toast = document.getElementById('toast');
     const longPressMenu = document.getElementById('longPressMenu');
-    const menuDelete = document.getElementById('menuDelete');
-    const menuArchive = document.getElementById('menuArchive');
+    const menuButtons = document.getElementById('menuButtons');
 
     let isRecording = false;
     let blocksData = [];
@@ -428,9 +429,10 @@
     let mouseSwipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
     let longPressTimer = null;
     let longPressTriggered = false;
+    let longPressTarget = null;
     let saveBtnPressTimer = null;
 
-    // ===================== ОЗВУЧКА (SpeechSynthesis API) =====================
+    // ===================== ОЗВУЧКА =====================
     let currentUtterance = null;
     let currentSpeakingBlock = null;
 
@@ -441,70 +443,91 @@
         showToast('Нет текста для озвучки');
         return;
       }
-
       const lang = block.currentLang || 'ru';
-
-      // Если уже говорит этот же блок — останавливаем
       if (currentSpeakingBlock && currentSpeakingBlock === block) {
         window.speechSynthesis.cancel();
         currentUtterance = null;
         currentSpeakingBlock = null;
-        // Убираем подсветку
         document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
         showToast('⏹ Остановлено');
         return;
       }
-
-      // Останавливаем всё, что играет
       window.speechSynthesis.cancel();
       document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
-
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
-
-      // Подбираем голос
       const voices = window.speechSynthesis.getVoices();
       const voice = voices.find(v => v.lang.startsWith(lang)) || null;
       if (voice) utterance.voice = voice;
-
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
-
       utterance.onstart = () => {
         currentSpeakingBlock = block;
         currentUtterance = utterance;
-        // Подсвечиваем кнопку
         document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
         const btn = document.querySelector(`.btn-speak[data-block-id="${blocksData.indexOf(block)}"][data-archive="false"]`) ||
                      document.querySelector(`.btn-speak[data-archive-id="${archiveData.indexOf(block)}"][data-archive="true"]`);
         if (btn) btn.classList.add('playing');
         showToast(`🔊 ${LANG_FULL[lang] || lang}`);
       };
-
       utterance.onend = () => {
         currentSpeakingBlock = null;
         currentUtterance = null;
         document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
         showToast('✅ Озвучка завершена');
       };
-
       utterance.onerror = () => {
         currentSpeakingBlock = null;
         currentUtterance = null;
         document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
         showToast('❌ Ошибка озвучки');
       };
-
       window.speechSynthesis.speak(utterance);
     }
 
-    // Прогрев голосов
     if (window.speechSynthesis) {
       window.speechSynthesis.getVoices();
       window.speechSynthesis.onvoiceschanged = () => {
         window.speechSynthesis.getVoices();
       };
+    }
+
+    // ===================== ПЕРЕВОДЫ =====================
+    const LANG_FLAGS = {
+      ru: '🇷🇺',
+      en: '🇬🇧',
+      es: '🇪🇸',
+      tr: '🇹🇷',
+      de: '🇩🇪',
+      vi: '🇻🇳'
+    };
+    const LANG_FULL = {
+      ru: 'Русский',
+      en: 'Английский',
+      es: 'Испанский',
+      tr: 'Турецкий',
+      de: 'Немецкий',
+      vi: 'Вьетнамский'
+    };
+    const LANG_LIST = ['ru', 'en', 'es', 'tr', 'de', 'vi'];
+
+    async function translateText(text, targetLang) {
+      if (!text || !text.trim()) return text;
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        return data[0].map(item => item[0]).join(' ');
+      } catch (e) {
+        console.error('Translation error:', e);
+        return text;
+      }
+    }
+
+    function ensureBlockHasTranslations(block) {
+      if (!block.translations) block.translations = {};
+      if (!block.currentLang) block.currentLang = 'ru';
     }
 
     // ===================== ОСТАЛЬНАЯ ЛОГИКА =====================
@@ -515,26 +538,6 @@
       toast.classList.add('show');
       recordBtn.disabled = true;
       return;
-    }
-
-    const LANG_CHAIN_LEFT = ['ru', 'en', 'es', 'tr'];
-    const LANG_CHAIN_RIGHT = ['ru', 'tr', 'es', 'en'];
-    const LANG_NAMES = { ru: '🇷🇺', en: '🇬🇧', es: '🇪🇸', tr: '🇹🇷' };
-    const LANG_FULL = { ru: 'Русский', en: 'Английский', es: 'Испанский', tr: 'Турецкий' };
-
-    function getNextLang(currentLang) {
-      const idx = LANG_CHAIN_LEFT.indexOf(currentLang);
-      return LANG_CHAIN_LEFT[(idx + 1) % LANG_CHAIN_LEFT.length];
-    }
-
-    function getPrevLang(currentLang) {
-      const idx = LANG_CHAIN_RIGHT.indexOf(currentLang);
-      return LANG_CHAIN_RIGHT[(idx + 1) % LANG_CHAIN_RIGHT.length];
-    }
-
-    function ensureBlockHasTranslations(block) {
-      if (!block.translations) block.translations = {};
-      if (!block.currentLang) block.currentLang = 'ru';
     }
 
     const questionWords = [
@@ -550,19 +553,6 @@
         if (trimmed.startsWith(w + ' ') || trimmed === w) return true;
       }
       return false;
-    }
-
-    async function translateText(text, targetLang) {
-      if (!text || !text.trim()) return text;
-      try {
-        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
-        const resp = await fetch(url);
-        const data = await resp.json();
-        return data[0].map(item => item[0]).join(' ');
-      } catch (e) {
-        console.error('Translation error:', e);
-        return text;
-      }
     }
 
     function showToast(msg) {
@@ -655,20 +645,22 @@
         const realIndex = blocksData.indexOf(block);
         const isCollapsed = block.collapsed !== false;
         const isLive = block.live || false;
-        const langLabel = LANG_NAMES[block.currentLang] || '🇷🇺';
+        const langLabel = LANG_FLAGS[block.currentLang] || '🇷🇺';
         let borderColor = '#4CAF50';
         if (isLive) borderColor = '#ff9800';
         else if (block.currentLang === 'en') borderColor = '#2196F3';
         else if (block.currentLang === 'es') borderColor = '#ff9800';
         else if (block.currentLang === 'tr') borderColor = '#f44336';
+        else if (block.currentLang === 'de') borderColor = '#9c27b0';
+        else if (block.currentLang === 'vi') borderColor = '#4caf50';
         const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}`;
         html += `
           <div class="${blockClass}" data-index="${realIndex}" style="border-left-color: ${borderColor};">
             <div class="block-text">${escapeHtml(block.text)}</div>
             <span class="block-time">${block.time} ${langLabel}</span>
             ${!isLive ? `<button class="btn-speak" data-block-id="${realIndex}" data-archive="false" aria-label="Озвучить">🔊</button>` : ''}
-            <span class="swipe-hint left">← перевести</span>
-            <span class="swipe-hint right">↩ отмена</span>
+            <span class="swipe-hint left">← удалить</span>
+            <span class="swipe-hint right">→ архив</span>
           </div>
         `;
       });
@@ -676,7 +668,6 @@
       attachEvents(blocksEl, false);
       updateButtons();
       saveToStorage();
-      // Обработчики кнопок озвучки
       document.querySelectorAll('.btn-speak[data-archive="false"]').forEach(btn => {
         const blockId = parseInt(btn.dataset.blockId);
         btn.addEventListener('click', (e) => {
@@ -696,19 +687,21 @@
       let html = '';
       blocks.forEach((block, index) => {
         const isCollapsed = block.collapsed !== false;
-        const langLabel = LANG_NAMES[block.currentLang] || '🇷🇺';
+        const langLabel = LANG_FLAGS[block.currentLang] || '🇷🇺';
         let borderColor = '#4CAF50';
         if (block.currentLang === 'en') borderColor = '#2196F3';
         else if (block.currentLang === 'es') borderColor = '#ff9800';
         else if (block.currentLang === 'tr') borderColor = '#f44336';
+        else if (block.currentLang === 'de') borderColor = '#9c27b0';
+        else if (block.currentLang === 'vi') borderColor = '#4caf50';
         const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'}`;
         html += `
           <div class="${blockClass}" data-archive-index="${index}" style="border-left-color: ${borderColor};">
             <div class="block-text">${escapeHtml(block.text)}</div>
             <span class="block-time">${block.time} ${langLabel}</span>
             <button class="btn-speak" data-archive-id="${index}" data-archive="true" aria-label="Озвучить">🔊</button>
-            <span class="swipe-hint left">← перевести</span>
-            <span class="swipe-hint right">↩ отмена</span>
+            <span class="swipe-hint left">← удалить</span>
+            <span class="swipe-hint right">→ вернуть</span>
           </div>
         `;
       });
@@ -716,7 +709,6 @@
       attachEvents(blocksArchiveEl, true);
       updateArchiveButtons();
       saveToStorage();
-      // Обработчики кнопок озвучки в архиве
       document.querySelectorAll('.btn-speak[data-archive="true"]').forEach(btn => {
         const blockId = parseInt(btn.dataset.archiveId);
         btn.addEventListener('click', (e) => {
@@ -743,25 +735,19 @@
         el.addEventListener('pointerdown', function(e) {
           if (e.target.closest('.btn-speak')) return;
           longPressTriggered = false;
+          longPressTarget = { idx, isArchive };
           longPressTimer = setTimeout(() => {
             longPressTriggered = true;
             const data = isArchive ? archiveData : blocksData;
             if (!data[idx] || data[idx].live) return;
-            if (isArchive) {
-              if (confirm('Удалить этот блок из архива?')) {
-                archiveData.splice(idx, 1);
-                renderArchiveBlocks();
-                showToast('🗑 Блок удалён из архива');
-              }
-            } else {
-              longPressMenu._targetIndex = idx;
-              longPressMenu.classList.add('active');
-            }
-          }, 700);
+            // Показываем меню с флагами
+            showLanguageMenu(idx, isArchive);
+          }, 500);
         });
-        el.addEventListener('pointerup', () => clearTimeout(longPressTimer));
-        el.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
+        el.addEventListener('pointerup', () => { clearTimeout(longPressTimer); });
+        el.addEventListener('pointerleave', () => { clearTimeout(longPressTimer); });
 
+        // Свайпы
         el.addEventListener('touchstart', function(e) {
           if (e.target.closest('.btn-speak')) return;
           swipeState.startX = e.touches[0].clientX;
@@ -809,8 +795,13 @@
           const touch = e.changedTouches[0];
           const deltaX = touch.clientX - swipeState.startX;
           const threshold = 50;
-          if (deltaX < -threshold) handleSwipeLeft(index, isArchiveMode);
-          else if (deltaX > threshold) handleSwipeRight(index, isArchiveMode);
+          if (deltaX < -threshold) {
+            // Свайп влево — удаление
+            handleSwipeLeft(index, isArchiveMode);
+          } else if (deltaX > threshold) {
+            // Свайп вправо — архив/возврат
+            handleSwipeRight(index, isArchiveMode);
+          }
           swipeState.isSwiping = false;
           swipeState.currentElement = null;
         }, { passive: true });
@@ -861,74 +852,124 @@
           }
           const deltaX = e.clientX - mouseSwipeState.startX;
           const threshold = 50;
-          if (deltaX < -threshold) handleSwipeLeft(index, isArchiveMode);
-          else if (deltaX > threshold) handleSwipeRight(index, isArchiveMode);
+          if (deltaX < -threshold) {
+            handleSwipeLeft(index, isArchiveMode);
+          } else if (deltaX > threshold) {
+            handleSwipeRight(index, isArchiveMode);
+          }
           mouseSwipeState.isSwiping = false;
           mouseSwipeState.currentElement = null;
         });
       });
     }
 
-    async function handleSwipeLeft(index, isArchive) {
+    function handleSwipeLeft(index, isArchive) {
       const data = isArchive ? archiveData : blocksData;
-      const block = data[index];
-      if (!block || block.live) return;
-      ensureBlockHasTranslations(block);
-
-      const nextLang = getNextLang(block.currentLang);
-
-      if (nextLang === 'ru') {
-        block.text = block.originalText;
-        block.currentLang = 'ru';
-      } else if (block.translations[nextLang]) {
-        block.text = block.translations[nextLang];
-        block.currentLang = nextLang;
+      if (index < 0 || index >= data.length) return;
+      data.splice(index, 1);
+      if (isArchive) {
+        renderArchiveBlocks();
+        showToast('🗑 Блок удалён из архива');
       } else {
-        showToast(`⏳ Перевод на ${LANG_FULL[nextLang]}...`);
-        const translated = await translateText(block.originalText, nextLang);
-        if (translated && translated !== block.originalText) {
-          block.translations[nextLang] = translated;
-          block.text = translated;
-          block.currentLang = nextLang;
-        } else {
-          showToast('❌ Ошибка перевода');
-          return;
-        }
+        renderBlocks();
+        showToast('🗑 Блок удалён');
       }
-      if (isArchive) renderArchiveBlocks(); else renderBlocks();
-      showToast(`✅ ${LANG_FULL[block.currentLang]}`);
     }
 
-    async function handleSwipeRight(index, isArchive) {
-      const data = isArchive ? archiveData : blocksData;
-      const block = data[index];
-      if (!block || block.live) return;
-      ensureBlockHasTranslations(block);
-
-      const prevLang = getPrevLang(block.currentLang);
-
-      if (prevLang === 'ru') {
-        block.text = block.originalText;
-        block.currentLang = 'ru';
-      } else if (block.translations[prevLang]) {
-        block.text = block.translations[prevLang];
-        block.currentLang = prevLang;
+    function handleSwipeRight(index, isArchive) {
+      if (isArchive) {
+        // Из архива → возвращаем на основной
+        const block = archiveData[index];
+        if (!block) return;
+        archiveData.splice(index, 1);
+        blocksData.push({ ...block, live: false });
+        renderBlocks();
+        renderArchiveBlocks();
+        updateArchiveButton();
+        showToast('↩️ Блок возвращён на основной экран');
       } else {
-        showToast(`⏳ Перевод на ${LANG_FULL[prevLang]}...`);
-        const translated = await translateText(block.originalText, prevLang);
-        if (translated && translated !== block.originalText) {
-          block.translations[prevLang] = translated;
-          block.text = translated;
-          block.currentLang = prevLang;
-        } else {
-          showToast('❌ Ошибка перевода');
-          return;
-        }
+        // С основного → в архив
+        const block = blocksData[index];
+        if (!block || block.live) return;
+        blocksData.splice(index, 1);
+        archiveData.push({ ...block, live: false });
+        renderBlocks();
+        renderArchiveBlocks();
+        updateArchiveButton();
+        showToast('📦 Блок отправлен в архив');
       }
-      if (isArchive) renderArchiveBlocks(); else renderBlocks();
-      showToast(`↩️ ${LANG_FULL[block.currentLang]}`);
     }
 
+    // ===================== МЕНЮ ПЕРЕВОДА =====================
+    function showLanguageMenu(idx, isArchive) {
+      const data = isArchive ? archiveData : blocksData;
+      const block = data[idx];
+      if (!block || block.live) return;
+
+      menuButtons.innerHTML = '';
+      LANG_LIST.forEach(lang => {
+        const btn = document.createElement('button');
+        btn.className = 'menu-btn';
+        if (block.currentLang === lang) btn.classList.add('active-lang');
+        btn.textContent = LANG_FLAGS[lang];
+        btn.title = LANG_FULL[lang];
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          longPressMenu.classList.remove('active');
+          await translateBlock(idx, isArchive, lang);
+        });
+        menuButtons.appendChild(btn);
+      });
+
+      longPressMenu._targetIdx = idx;
+      longPressMenu._isArchive = isArchive;
+      longPressMenu.classList.add('active');
+    }
+
+    async function translateBlock(idx, isArchive, targetLang) {
+      const data = isArchive ? archiveData : blocksData;
+      const block = data[idx];
+      if (!block || block.live) return;
+
+      ensureBlockHasTranslations(block);
+
+      if (targetLang === 'ru') {
+        block.text = block.originalText;
+        block.currentLang = 'ru';
+        if (isArchive) renderArchiveBlocks(); else renderBlocks();
+        showToast('↩️ Оригинал');
+        return;
+      }
+
+      if (block.translations[targetLang]) {
+        block.text = block.translations[targetLang];
+        block.currentLang = targetLang;
+        if (isArchive) renderArchiveBlocks(); else renderBlocks();
+        showToast(`✅ ${LANG_FULL[targetLang]}`);
+        return;
+      }
+
+      showToast(`⏳ Перевод на ${LANG_FULL[targetLang]}...`);
+      const translated = await translateText(block.originalText, targetLang);
+      if (translated && translated !== block.originalText) {
+        block.translations[targetLang] = translated;
+        block.text = translated;
+        block.currentLang = targetLang;
+        if (isArchive) renderArchiveBlocks(); else renderBlocks();
+        showToast(`✅ ${LANG_FULL[targetLang]}`);
+      } else {
+        showToast('❌ Ошибка перевода');
+      }
+    }
+
+    // Закрытие меню при клике вне кнопок
+    longPressMenu.addEventListener('click', function(e) {
+      if (e.target === this) {
+        this.classList.remove('active');
+      }
+    });
+
+    // ===================== ОСТАЛЬНЫЕ КНОПКИ =====================
     function updateButtons() {
       const hasBlocks = blocksData.filter(b => !b.live).length > 0;
       if (hasBlocks) {
@@ -1129,36 +1170,6 @@
         updateArchiveButton();
       }
     }
-
-    menuDelete.addEventListener('click', function() {
-      longPressMenu.classList.remove('active');
-      const idx = longPressMenu._targetIndex;
-      if (idx !== undefined) {
-        blocksData.splice(idx, 1);
-        renderBlocks();
-        showToast('🗑 Блок удалён');
-      }
-    });
-
-    menuArchive.addEventListener('click', function() {
-      longPressMenu.classList.remove('active');
-      const idx = longPressMenu._targetIndex;
-      if (idx !== undefined) {
-        const block = blocksData[idx];
-        if (block && !block.live) {
-          archiveData.push({ ...block, live: false });
-          blocksData.splice(idx, 1);
-          renderBlocks();
-          renderArchiveBlocks();
-          updateArchiveButton();
-          showToast('⭐ Блок заархивирован');
-        }
-      }
-    });
-
-    longPressMenu.addEventListener('click', function(e) {
-      if (e.target === this) this.classList.remove('active');
-    });
 
     function handleSavePress(isLong) {
       const data = blocksData.filter(b => !b.live);
