@@ -407,55 +407,24 @@
     let longPressTriggered = false;
     let saveBtnPressTimer = null;
 
-    // ===================== ОЗВУЧКА (Google TTS) =====================
+    // ===================== ОЗВУЧКА (Edge TTS через CORS-прокси) =====================
     let audioContext = null;
     let currentAudioSource = null;
     let currentSpeakingBlock = null;
 
-    const VOICE_MAP = { ru: 'ru', en: 'en', es: 'es', tr: 'tr' };
+    const VOICE_MAP = {
+      ru: 'ru-RU-SvetlanaNeural',
+      en: 'en-US-JennyNeural',
+      es: 'es-ES-ElviraNeural',
+      tr: 'tr-TR-EmelNeural'
+    };
 
     async function getTTSAudio(text, lang) {
-      const tl = VOICE_MAP[lang] || 'ru';
-      const maxChunk = 100;
-      const chunks = splitText(text, maxChunk);
-      const audioBuffers = [];
-
-      for (const chunk of chunks) {
-        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${tl}&client=tw-ob`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Google TTS error');
-        const arrayBuffer = await response.arrayBuffer();
-        audioBuffers.push(arrayBuffer);
-      }
-
-      if (audioBuffers.length === 1) return audioBuffers[0];
-      return concatenateAudioBuffers(audioBuffers);
-    }
-
-    function splitText(text, maxLength) {
-      const chunks = [];
-      let current = '';
-      for (const word of text.split(' ')) {
-        if ((current + ' ' + word).length > maxLength) {
-          chunks.push(current.trim());
-          current = word;
-        } else {
-          current += (current ? ' ' : '') + word;
-        }
-      }
-      if (current) chunks.push(current.trim());
-      return chunks;
-    }
-
-    function concatenateAudioBuffers(buffers) {
-      const totalLength = buffers.reduce((sum, b) => sum + b.byteLength, 0);
-      const result = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const buf of buffers) {
-        result.set(new Uint8Array(buf), offset);
-        offset += buf.byteLength;
-      }
-      return result.buffer;
+      const voice = VOICE_MAP[lang] || VOICE_MAP.ru;
+      const url = `https://api.edge-tts.workers.dev/tts?text=${encodeURIComponent(text)}&voice=${voice}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('TTS API error');
+      return await response.arrayBuffer();
     }
 
     function playAudio(arrayBuffer) {
@@ -1127,7 +1096,6 @@
 
       const lang = block.currentLang || 'ru';
 
-      // Если уже играет этот же блок — останавливаем
       if (currentSpeakingBlock && currentSpeakingBlock.block === block) {
         stopAudio();
         showToast('⏹ Остановлено');
