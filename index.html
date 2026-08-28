@@ -425,112 +425,24 @@
     let longPressTriggered = false;
     let saveBtnPressTimer = null;
 
-    // ===================== ОЗВУЧКА =====================
-    let audioContext = null;
-    let currentAudioSource = null;
+    // ===================== ОЗВУЧКА (Speech Synthesis API) =====================
+    let currentUtterance = null;
     let currentSpeakingBlock = null;
 
-    const VOICE_MAP = {
-      ru: 'ru-RU-SvetlanaNeural',
-      en: 'en-US-JennyNeural',
-      es: 'es-ES-ElviraNeural',
-      tr: 'tr-TR-EmelNeural'
-    };
-
-    async function getTTSAudio(text, lang) {
-      const voice = VOICE_MAP[lang] || VOICE_MAP.ru;
-
-      // Пробуем Edge TTS сначала
-      try {
-        const url = `https://api.edge-tts.workers.dev/tts?text=${encodeURIComponent(text)}&voice=${voice}`;
-        const response = await fetch(url);
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          if (arrayBuffer.byteLength > 100) {
-            return arrayBuffer;
-          }
-        }
-      } catch (_) {}
-
-      // Бэкап: Google Translate TTS
-      console.warn('Edge TTS не ответил, используем Google Translate TTS');
-      return await getGoogleTTSAudio(text, lang);
-    }
-
-    async function getGoogleTTSAudio(text, lang) {
-      const langMap = { ru: 'ru', en: 'en', es: 'es', tr: 'tr' };
-      const tl = langMap[lang] || 'ru';
-      const maxChunk = 100;
-      const chunks = splitText(text, maxChunk);
-      const audioBuffers = [];
-
-      for (const chunk of chunks) {
-        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${tl}&client=tw-ob`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Google TTS error');
-        const arrayBuffer = await response.arrayBuffer();
-        audioBuffers.push(arrayBuffer);
+    function getVoiceForLang(lang) {
+      const voices = speechSynthesis.getVoices();
+      const langMap = {
+        ru: ['ru-RU', 'ru'],
+        en: ['en-US', 'en-GB', 'en'],
+        es: ['es-ES', 'es'],
+        tr: ['tr-TR', 'tr']
+      };
+      const candidates = langMap[lang] || ['ru'];
+      for (const candidate of candidates) {
+        const found = voices.find(v => v.lang.startsWith(candidate));
+        if (found) return found;
       }
-
-      if (audioBuffers.length === 1) return audioBuffers[0];
-      return concatenateAudioBuffers(audioBuffers);
-    }
-
-    function splitText(text, maxLength) {
-      const chunks = [];
-      let current = '';
-      for (const word of text.split(' ')) {
-        if ((current + ' ' + word).length > maxLength) {
-          chunks.push(current.trim());
-          current = word;
-        } else {
-          current += (current ? ' ' : '') + word;
-        }
-      }
-      if (current) chunks.push(current.trim());
-      return chunks;
-    }
-
-    function concatenateAudioBuffers(buffers) {
-      const totalLength = buffers.reduce((sum, b) => sum + b.byteLength, 0);
-      const result = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const buf of buffers) {
-        result.set(new Uint8Array(buf), offset);
-        offset += buf.byteLength;
-      }
-      return result.buffer;
-    }
-
-    function playAudio(arrayBuffer) {
-      if (audioContext && audioContext.state === 'running') {
-        audioContext.close();
-      }
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      return audioContext.decodeAudioData(arrayBuffer).then(buffer => {
-        const source = audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        source.start(0);
-        currentAudioSource = source;
-        return source;
-      });
-    }
-
-    function stopAudio() {
-      if (currentAudioSource) {
-        try {
-          currentAudioSource.stop();
-          currentAudioSource.disconnect();
-        } catch (_) {}
-        currentAudioSource = null;
-      }
-      if (audioContext && audioContext.state === 'running') {
-        audioContext.close();
-        audioContext = null;
-      }
-      currentSpeakingBlock = null;
-      document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
+      return voices.find(v => v.lang.startsWith('ru')) || voices[0] || null;
     }
 
     function handleSpeak(blockId, isArchive, event) {
@@ -546,32 +458,53 @@
       }
 
       const lang = block.currentLang || 'ru';
+      const utteranceId = `${blockId}_${isArchive}`;
 
-      if (currentSpeakingBlock && currentSpeakingBlock.blockId === blockId && currentSpeakingBlock.isArchive === isArchive) {
-        stopAudio();
+      // Если уже говорит этот блок — останавливаем
+      if (currentUtterance && currentSpeakingBlock === utteranceId) {
+        speechSynthesis.cancel();
+        currentUtterance = null;
+        currentSpeakingBlock = null;
+        document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
         showToast('⏹ Остановлено');
         return;
       }
 
-      stopAudio();
+      // Останавливаем всё, что могло играть
+      speechSynthesis.cancel();
+      currentUtterance = null;
+      document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
 
-      showToast(`🔊 Озвучка...`);
-      getTTSAudio(text, lang).then(audioData => {
-        return playAudio(audioData);
-      }).then(source => {
-        currentSpeakingBlock = { blockId, isArchive };
-        document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voice = getVoiceForLang(lang);
+      if (voice) utterance.voice = voice;
+      utterance.lang = lang;
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+
+      utterance.onstart = () => {
+        currentUtterance = utterance;
+        currentSpeakingBlock = utteranceId;
         const btn = document.querySelector(`.btn-speak[data-block-id="${blockId}"][data-archive="${isArchive}"]`);
         if (btn) btn.classList.add('playing');
-        source.onended = () => {
-          document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
-          currentSpeakingBlock = null;
-        };
         showToast(`🔊 ${LANG_FULL[lang] || lang}`);
-      }).catch(err => {
-        console.error('TTS error:', err);
+      };
+
+      utterance.onend = () => {
+        currentUtterance = null;
+        currentSpeakingBlock = null;
+        document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
+      };
+
+      utterance.onerror = (e) => {
+        console.error('Speech synthesis error:', e);
+        currentUtterance = null;
+        currentSpeakingBlock = null;
+        document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
         showToast('❌ Ошибка озвучки');
-      });
+      };
+
+      speechSynthesis.speak(utterance);
     }
 
     // ===================== ОСТАЛЬНАЯ ЛОГИКА =====================
@@ -1310,6 +1243,14 @@
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); toggleRec(); }
       if (e.key === 'Escape' && isRecording) { e.preventDefault(); stopRec(); }
     });
+
+    // Инициализируем голоса (некоторые браузеры требуют этого)
+    if (window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
 
     loadFromStorage();
   })();
