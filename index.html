@@ -96,31 +96,6 @@
     .block.swiping-left .swipe-hint.left { opacity: 1; }
     .block.swiping-right .swipe-hint.right { opacity: 1; }
 
-    .btn-speak {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      border: none;
-      background: rgba(255,255,255,0.08);
-      color: #ccc;
-      font-size: 14px;
-      cursor: pointer;
-      transition: 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      -webkit-user-select: none;
-      z-index: 2;
-    }
-    .btn-speak:active { transform: scale(0.8); }
-    .btn-speak:hover { background: rgba(255,255,255,0.15); color: #fff; }
-    .btn-speak.playing { color: #42a5f5; background: rgba(66,165,245,0.2); }
-
     .buttons {
       display: flex;
       align-items: center;
@@ -231,13 +206,17 @@
       touch-action: none;
     }
     .long-press-menu.active { display: flex; }
-    .long-press-menu .menu-buttons { display: flex; gap: 40px; background: transparent; }
+    .long-press-menu .menu-buttons {
+      display: flex;
+      gap: 30px;
+      background: transparent;
+    }
     .long-press-menu .menu-btn {
-      width: 100px;
-      height: 100px;
+      width: 80px;
+      height: 80px;
       border-radius: 50%;
       border: none;
-      font-size: 48px;
+      font-size: 36px;
       cursor: pointer;
       transition: 0.2s;
       display: flex;
@@ -248,8 +227,9 @@
       -webkit-user-select: none;
       box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     }
-    .long-press-menu .menu-btn:active { transform: scale(0.9); }
+    .long-press-menu .menu-btn:active { transform: scale(0.85); }
     .long-press-menu .menu-btn.delete { background: #ff1744; color: white; }
+    .long-press-menu .menu-btn.speak { background: #42a5f5; color: white; }
     .long-press-menu .menu-btn.archive { background: #2a2a2a; color: #ffd700; }
 
     .screen {
@@ -388,6 +368,7 @@
   <div class="long-press-menu" id="longPressMenu">
     <div class="menu-buttons">
       <button class="menu-btn delete" id="menuDelete">✕</button>
+      <button class="menu-btn speak" id="menuSpeak">🔊</button>
       <button class="menu-btn archive" id="menuArchive">⭐</button>
     </div>
   </div>
@@ -409,6 +390,7 @@
     const toast = document.getElementById('toast');
     const longPressMenu = document.getElementById('longPressMenu');
     const menuDelete = document.getElementById('menuDelete');
+    const menuSpeak = document.getElementById('menuSpeak');
     const menuArchive = document.getElementById('menuArchive');
 
     let isRecording = false;
@@ -425,86 +407,85 @@
     let longPressTriggered = false;
     let saveBtnPressTimer = null;
 
-    // ===================== ОЗВУЧКА (Speech Synthesis API) =====================
-    let currentUtterance = null;
+    // ===================== ОЗВУЧКА (Google TTS) =====================
+    let audioContext = null;
+    let currentAudioSource = null;
     let currentSpeakingBlock = null;
 
-    function getVoiceForLang(lang) {
-      const voices = speechSynthesis.getVoices();
-      const langMap = {
-        ru: ['ru-RU', 'ru'],
-        en: ['en-US', 'en-GB', 'en'],
-        es: ['es-ES', 'es'],
-        tr: ['tr-TR', 'tr']
-      };
-      const candidates = langMap[lang] || ['ru'];
-      for (const candidate of candidates) {
-        const found = voices.find(v => v.lang.startsWith(candidate));
-        if (found) return found;
+    const VOICE_MAP = { ru: 'ru', en: 'en', es: 'es', tr: 'tr' };
+
+    async function getTTSAudio(text, lang) {
+      const tl = VOICE_MAP[lang] || 'ru';
+      const maxChunk = 100;
+      const chunks = splitText(text, maxChunk);
+      const audioBuffers = [];
+
+      for (const chunk of chunks) {
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${tl}&client=tw-ob`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Google TTS error');
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffers.push(arrayBuffer);
       }
-      return voices.find(v => v.lang.startsWith('ru')) || voices[0] || null;
+
+      if (audioBuffers.length === 1) return audioBuffers[0];
+      return concatenateAudioBuffers(audioBuffers);
     }
 
-    function handleSpeak(blockId, isArchive, event) {
-      event.stopPropagation();
-      const data = isArchive ? archiveData : blocksData;
-      const block = data[blockId];
-      if (!block || block.live) return;
-
-      const text = block.text;
-      if (!text || !text.trim()) {
-        showToast('Нет текста для озвучки');
-        return;
+    function splitText(text, maxLength) {
+      const chunks = [];
+      let current = '';
+      for (const word of text.split(' ')) {
+        if ((current + ' ' + word).length > maxLength) {
+          chunks.push(current.trim());
+          current = word;
+        } else {
+          current += (current ? ' ' : '') + word;
+        }
       }
+      if (current) chunks.push(current.trim());
+      return chunks;
+    }
 
-      const lang = block.currentLang || 'ru';
-      const utteranceId = `${blockId}_${isArchive}`;
-
-      // Если уже говорит этот блок — останавливаем
-      if (currentUtterance && currentSpeakingBlock === utteranceId) {
-        speechSynthesis.cancel();
-        currentUtterance = null;
-        currentSpeakingBlock = null;
-        document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
-        showToast('⏹ Остановлено');
-        return;
+    function concatenateAudioBuffers(buffers) {
+      const totalLength = buffers.reduce((sum, b) => sum + b.byteLength, 0);
+      const result = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const buf of buffers) {
+        result.set(new Uint8Array(buf), offset);
+        offset += buf.byteLength;
       }
+      return result.buffer;
+    }
 
-      // Останавливаем всё, что могло играть
-      speechSynthesis.cancel();
-      currentUtterance = null;
-      document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
+    function playAudio(arrayBuffer) {
+      if (audioContext && audioContext.state === 'running') {
+        audioContext.close();
+      }
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      return audioContext.decodeAudioData(arrayBuffer).then(buffer => {
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+        currentAudioSource = source;
+        return source;
+      });
+    }
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      const voice = getVoiceForLang(lang);
-      if (voice) utterance.voice = voice;
-      utterance.lang = lang;
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-
-      utterance.onstart = () => {
-        currentUtterance = utterance;
-        currentSpeakingBlock = utteranceId;
-        const btn = document.querySelector(`.btn-speak[data-block-id="${blockId}"][data-archive="${isArchive}"]`);
-        if (btn) btn.classList.add('playing');
-        showToast(`🔊 ${LANG_FULL[lang] || lang}`);
-      };
-
-      utterance.onend = () => {
-        currentUtterance = null;
-        currentSpeakingBlock = null;
-        document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
-      };
-
-      utterance.onerror = (e) => {
-        console.error('Speech synthesis error:', e);
-        currentUtterance = null;
-        currentSpeakingBlock = null;
-        document.querySelectorAll('.btn-speak').forEach(btn => btn.classList.remove('playing'));
-        showToast('❌ Ошибка озвучки');
-      };
-
-      speechSynthesis.speak(utterance);
+    function stopAudio() {
+      if (currentAudioSource) {
+        try {
+          currentAudioSource.stop();
+          currentAudioSource.disconnect();
+        } catch (_) {}
+        currentAudioSource = null;
+      }
+      if (audioContext && audioContext.state === 'running') {
+        audioContext.close();
+        audioContext = null;
+      }
+      currentSpeakingBlock = null;
     }
 
     // ===================== ОСТАЛЬНАЯ ЛОГИКА =====================
@@ -666,7 +647,6 @@
           <div class="${blockClass}" data-index="${realIndex}" style="border-left-color: ${borderColor};">
             <div class="block-text">${escapeHtml(block.text)}</div>
             <span class="block-time">${block.time} ${langLabel}</span>
-            ${!isLive ? `<button class="btn-speak" data-block-id="${realIndex}" data-archive="false" aria-label="Озвучить">🔊</button>` : ''}
             <span class="swipe-hint left">← перевести</span>
             <span class="swipe-hint right">↩ отмена</span>
           </div>
@@ -676,10 +656,6 @@
       attachEvents(blocksEl, false);
       updateButtons();
       saveToStorage();
-      document.querySelectorAll('.btn-speak[data-archive="false"]').forEach(btn => {
-        const blockId = parseInt(btn.dataset.blockId);
-        btn.addEventListener('click', (e) => handleSpeak(blockId, false, e));
-      });
     }
 
     function renderArchiveBlocks() {
@@ -702,7 +678,6 @@
           <div class="${blockClass}" data-archive-index="${index}" style="border-left-color: ${borderColor};">
             <div class="block-text">${escapeHtml(block.text)}</div>
             <span class="block-time">${block.time} ${langLabel}</span>
-            <button class="btn-speak" data-block-id="${index}" data-archive="true" aria-label="Озвучить">🔊</button>
             <span class="swipe-hint left">← перевести</span>
             <span class="swipe-hint right">↩ отмена</span>
           </div>
@@ -712,10 +687,6 @@
       attachEvents(blocksArchiveEl, true);
       updateArchiveButtons();
       saveToStorage();
-      document.querySelectorAll('.btn-speak[data-archive="true"]').forEach(btn => {
-        const blockId = parseInt(btn.dataset.blockId);
-        btn.addEventListener('click', (e) => handleSpeak(blockId, true, e));
-      });
     }
 
     function attachEvents(container, isArchive) {
@@ -725,7 +696,6 @@
 
         el.addEventListener('click', function(e) {
           if (longPressTriggered) { longPressTriggered = false; return; }
-          if (e.target.closest('.btn-speak')) return;
           const data = isArchive ? archiveData : blocksData;
           if (!data[idx] || data[idx].live) return;
           data[idx].collapsed = !data[idx].collapsed;
@@ -733,7 +703,6 @@
         });
 
         el.addEventListener('pointerdown', function(e) {
-          if (e.target.closest('.btn-speak')) return;
           longPressTriggered = false;
           longPressTimer = setTimeout(() => {
             longPressTriggered = true;
@@ -747,6 +716,7 @@
               }
             } else {
               longPressMenu._targetIndex = idx;
+              longPressMenu._isArchive = false;
               longPressMenu.classList.add('active');
             }
           }, 700);
@@ -755,7 +725,6 @@
         el.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
 
         el.addEventListener('touchstart', function(e) {
-          if (e.target.closest('.btn-speak')) return;
           swipeState.startX = e.touches[0].clientX;
           swipeState.startY = e.touches[0].clientY;
           swipeState.isSwiping = false;
@@ -808,7 +777,6 @@
         }, { passive: true });
 
         el.addEventListener('mousedown', function(e) {
-          if (e.target.closest('.btn-speak')) return;
           mouseSwipeState.startX = e.clientX;
           mouseSwipeState.startY = e.clientY;
           mouseSwipeState.isSwiping = false;
@@ -1122,36 +1090,90 @@
       }
     }
 
+    // ===================== МЕНЮ ДОЛГОГО НАЖАТИЯ =====================
+    function getTargetBlock() {
+      const idx = longPressMenu._targetIndex;
+      const isArchive = longPressMenu._isArchive || false;
+      const data = isArchive ? archiveData : blocksData;
+      return data[idx];
+    }
+
     menuDelete.addEventListener('click', function() {
       longPressMenu.classList.remove('active');
       const idx = longPressMenu._targetIndex;
-      if (idx !== undefined) {
+      const isArchive = longPressMenu._isArchive || false;
+      if (idx === undefined) return;
+      if (isArchive) {
+        archiveData.splice(idx, 1);
+        renderArchiveBlocks();
+        showToast('🗑 Блок удалён из архива');
+      } else {
         blocksData.splice(idx, 1);
         renderBlocks();
         showToast('🗑 Блок удалён');
       }
     });
 
+    menuSpeak.addEventListener('click', function() {
+      longPressMenu.classList.remove('active');
+      const block = getTargetBlock();
+      if (!block || block.live) return;
+
+      const text = block.text;
+      if (!text || !text.trim()) {
+        showToast('Нет текста для озвучки');
+        return;
+      }
+
+      const lang = block.currentLang || 'ru';
+
+      // Если уже играет этот же блок — останавливаем
+      if (currentSpeakingBlock && currentSpeakingBlock.block === block) {
+        stopAudio();
+        showToast('⏹ Остановлено');
+        return;
+      }
+
+      stopAudio();
+
+      showToast(`🔊 Озвучка...`);
+      getTTSAudio(text, lang).then(audioData => {
+        return playAudio(audioData);
+      }).then(source => {
+        currentSpeakingBlock = { block };
+        source.onended = () => {
+          currentSpeakingBlock = null;
+          showToast('✅ Озвучка завершена');
+        };
+        showToast(`🔊 ${LANG_FULL[lang] || lang}`);
+      }).catch(err => {
+        console.error('TTS error:', err);
+        showToast('❌ Ошибка озвучки');
+      });
+    });
+
     menuArchive.addEventListener('click', function() {
       longPressMenu.classList.remove('active');
       const idx = longPressMenu._targetIndex;
-      if (idx !== undefined) {
-        const block = blocksData[idx];
-        if (block && !block.live) {
-          archiveData.push({ ...block, live: false });
-          blocksData.splice(idx, 1);
-          renderBlocks();
-          renderArchiveBlocks();
-          updateArchiveButton();
-          showToast('⭐ Блок заархивирован');
-        }
+      if (idx === undefined) return;
+      const block = blocksData[idx];
+      if (block && !block.live) {
+        archiveData.push({ ...block, live: false });
+        blocksData.splice(idx, 1);
+        renderBlocks();
+        renderArchiveBlocks();
+        updateArchiveButton();
+        showToast('⭐ Блок заархивирован');
       }
     });
 
     longPressMenu.addEventListener('click', function(e) {
-      if (e.target === this) this.classList.remove('active');
+      if (e.target === this) {
+        this.classList.remove('active');
+      }
     });
 
+    // ===================== ОСТАЛЬНЫЕ КНОПКИ =====================
     function handleSavePress(isLong) {
       const data = blocksData.filter(b => !b.live);
       if (data.length === 0) { showToast('❌ Нет текста'); return; }
@@ -1243,14 +1265,6 @@
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); toggleRec(); }
       if (e.key === 'Escape' && isRecording) { e.preventDefault(); stopRec(); }
     });
-
-    // Инициализируем голоса (некоторые браузеры требуют этого)
-    if (window.speechSynthesis) {
-      window.speechSynthesis.getVoices();
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices();
-      };
-    }
 
     loadFromStorage();
   })();
