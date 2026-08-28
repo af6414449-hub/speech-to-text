@@ -424,6 +424,9 @@
     let restartTimer = null;
     let accumulatedText = '';
     let liveBlockIndex = -1;
+    let isManualStop = false;
+    let lastResultText = '';
+    let lastProcessedText = '';
 
     let swipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
     let mouseSwipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
@@ -510,7 +513,17 @@
       de: 'Немецкий',
       vi: 'Вьетнамский'
     };
+    const LANG_COLORS = {
+      ru: '#4CAF50',
+      en: '#2196F3',
+      es: '#FF9800',
+      tr: '#f44336',
+      de: '#9c27b0',
+      vi: '#4caf50'
+    };
     const LANG_LIST = ['ru', 'en', 'es', 'tr', 'de', 'vi'];
+
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
     async function translateText(text, targetLang) {
       if (!text || !text.trim()) return text;
@@ -645,11 +658,11 @@
         const realIndex = blocksData.indexOf(block);
         const isCollapsed = block.collapsed !== false;
         const isLive = block.live || false;
-        const langLabel = LANG_FLAGS[block.currentLang] || '🇷🇺';
+        const langLabel = isMobile ? (LANG_FLAGS[block.currentLang] || '🇷🇺') : (LANG_FULL[block.currentLang] || 'Русский');
         let borderColor = '#4CAF50';
         if (isLive) borderColor = '#ff9800';
         else if (block.currentLang === 'en') borderColor = '#2196F3';
-        else if (block.currentLang === 'es') borderColor = '#ff9800';
+        else if (block.currentLang === 'es') borderColor = '#FF9800';
         else if (block.currentLang === 'tr') borderColor = '#f44336';
         else if (block.currentLang === 'de') borderColor = '#9c27b0';
         else if (block.currentLang === 'vi') borderColor = '#4caf50';
@@ -687,10 +700,10 @@
       let html = '';
       blocks.forEach((block, index) => {
         const isCollapsed = block.collapsed !== false;
-        const langLabel = LANG_FLAGS[block.currentLang] || '🇷🇺';
+        const langLabel = isMobile ? (LANG_FLAGS[block.currentLang] || '🇷🇺') : (LANG_FULL[block.currentLang] || 'Русский');
         let borderColor = '#4CAF50';
         if (block.currentLang === 'en') borderColor = '#2196F3';
-        else if (block.currentLang === 'es') borderColor = '#ff9800';
+        else if (block.currentLang === 'es') borderColor = '#FF9800';
         else if (block.currentLang === 'tr') borderColor = '#f44336';
         else if (block.currentLang === 'de') borderColor = '#9c27b0';
         else if (block.currentLang === 'vi') borderColor = '#4caf50';
@@ -740,14 +753,12 @@
             longPressTriggered = true;
             const data = isArchive ? archiveData : blocksData;
             if (!data[idx] || data[idx].live) return;
-            // Показываем меню с флагами
             showLanguageMenu(idx, isArchive);
           }, 500);
         });
         el.addEventListener('pointerup', () => { clearTimeout(longPressTimer); });
         el.addEventListener('pointerleave', () => { clearTimeout(longPressTimer); });
 
-        // Свайпы
         el.addEventListener('touchstart', function(e) {
           if (e.target.closest('.btn-speak')) return;
           swipeState.startX = e.touches[0].clientX;
@@ -796,10 +807,8 @@
           const deltaX = touch.clientX - swipeState.startX;
           const threshold = 50;
           if (deltaX < -threshold) {
-            // Свайп влево — удаление
             handleSwipeLeft(index, isArchiveMode);
           } else if (deltaX > threshold) {
-            // Свайп вправо — архив/возврат
             handleSwipeRight(index, isArchiveMode);
           }
           swipeState.isSwiping = false;
@@ -878,7 +887,6 @@
 
     function handleSwipeRight(index, isArchive) {
       if (isArchive) {
-        // Из архива → возвращаем на основной
         const block = archiveData[index];
         if (!block) return;
         archiveData.splice(index, 1);
@@ -888,7 +896,6 @@
         updateArchiveButton();
         showToast('↩️ Блок возвращён на основной экран');
       } else {
-        // С основного → в архив
         const block = blocksData[index];
         if (!block || block.live) return;
         blocksData.splice(index, 1);
@@ -907,19 +914,53 @@
       if (!block || block.live) return;
 
       menuButtons.innerHTML = '';
-      LANG_LIST.forEach(lang => {
-        const btn = document.createElement('button');
-        btn.className = 'menu-btn';
-        if (block.currentLang === lang) btn.classList.add('active-lang');
-        btn.textContent = LANG_FLAGS[lang];
-        btn.title = LANG_FULL[lang];
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          longPressMenu.classList.remove('active');
-          await translateBlock(idx, isArchive, lang);
+      
+      if (isMobile) {
+        // Телефон: флаги в 2 ряда по 3
+        LANG_LIST.forEach(lang => {
+          const btn = document.createElement('button');
+          btn.className = 'menu-btn';
+          if (block.currentLang === lang) btn.classList.add('active-lang');
+          btn.textContent = LANG_FLAGS[lang];
+          btn.title = LANG_FULL[lang];
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            longPressMenu.classList.remove('active');
+            await translateBlock(idx, isArchive, lang);
+          });
+          menuButtons.appendChild(btn);
         });
-        menuButtons.appendChild(btn);
-      });
+      } else {
+        // Компьютер: цветные плашки в столбик
+        LANG_LIST.forEach(lang => {
+          const btn = document.createElement('button');
+          btn.style.cssText = `
+            width: 100%;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: ${LANG_COLORS[lang] || '#444'};
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            text-align: center;
+            font-family: system-ui, sans-serif;
+          `;
+          if (block.currentLang === lang) {
+            btn.style.outline = '2px solid #fff';
+            btn.style.outlineOffset = '2px';
+          }
+          btn.textContent = LANG_FULL[lang];
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            longPressMenu.classList.remove('active');
+            await translateBlock(idx, isArchive, lang);
+          });
+          menuButtons.appendChild(btn);
+        });
+      }
 
       longPressMenu._targetIdx = idx;
       longPressMenu._isArchive = isArchive;
@@ -962,7 +1003,6 @@
       }
     }
 
-    // Закрытие меню при клике вне кнопок
     longPressMenu.addEventListener('click', function(e) {
       if (e.target === this) {
         this.classList.remove('active');
@@ -1051,18 +1091,24 @@
         recognition.interimResults = false;
 
         recognition.onresult = function(e) {
+          if (isManualStop) return;
           let text = '';
           for (let i = e.resultIndex; i < e.results.length; i++) {
             text += e.results[i][0].transcript;
           }
           if (!text.trim()) return;
-          const tail = accumulatedText.slice(-20);
-          if (tail.includes(text.trim()) && text.length < 30) return;
-          accumulatedText += accumulatedText ? ' ' + text : text;
+          
+          // Защита от дублей
+          if (text === lastResultText) return;
+          if (accumulatedText.endsWith(text.trim())) return;
+          
+          lastResultText = text;
+          accumulatedText += (accumulatedText ? ' ' : '') + text;
           updateLiveBlock();
         };
 
         recognition.onsoundend = function() {
+          if (isManualStop) return;
           if (accumulatedText && !accumulatedText.match(/[.!?]$/)) {
             accumulatedText += '.';
             accumulatedText = capitalizeAfterPunctuation(accumulatedText);
@@ -1081,10 +1127,12 @@
         };
 
         recognition.onend = function() {
-          if (isRecording && !recognition._manualStop) {
+          if (isRecording && !recognition._manualStop && !isManualStop) {
             clearTimeout(restartTimer);
             restartTimer = setTimeout(() => {
-              if (isRecording) try { recognition.start(); } catch(_) {}
+              if (isRecording && !isManualStop) {
+                try { recognition.start(); } catch(_) {}
+              }
             }, 300);
           } else {
             isRecording = false;
@@ -1106,7 +1154,9 @@
 
       isRecording = true;
       recognition._manualStop = false;
+      isManualStop = false;
       accumulatedText = '';
+      lastResultText = '';
       recordBtn.textContent = '■';
       recordBtn.className = 'btn-record active';
       if (liveBlockIndex === -1) liveBlockIndex = addBlock(' ', true);
@@ -1117,6 +1167,7 @@
 
     function stopRec() {
       if (!isRecording) return;
+      isManualStop = true;
       isRecording = false;
       if (recognition) {
         recognition._manualStop = true;
@@ -1126,7 +1177,8 @@
     }
 
     function toggleRec() {
-      if (isRecording) stopRec(); else startRec();
+      if (isRecording) stopRec();
+      else startRec();
     }
 
     function getFullTextWithTimestamps(data) {
