@@ -45,7 +45,7 @@
       background: #2a2a2a;
       border-radius: 12px;
       padding: 12px 16px;
-      border-left: 4px solid #4CAF50;
+      border-left: 4px solid #ffffff;
       position: relative;
       max-width: 100%;
       overflow: hidden;
@@ -426,13 +426,11 @@
     let liveBlockIndex = -1;
     let isManualStop = false;
     let lastResultText = '';
-    let lastProcessedText = '';
 
     let swipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
     let mouseSwipeState = { startX: 0, startY: 0, isSwiping: false, currentElement: null, currentIndex: -1 };
     let longPressTimer = null;
     let longPressTriggered = false;
-    let longPressTarget = null;
     let saveBtnPressTimer = null;
 
     // ===================== ОЗВУЧКА =====================
@@ -502,26 +500,38 @@
       en: '🇬🇧',
       es: '🇪🇸',
       tr: '🇹🇷',
-      de: '🇩🇪',
-      vi: '🇻🇳'
+      vi: '🇻🇳',
+      eo: '🟢',
+      ko: '🇰🇷'
     };
     const LANG_FULL = {
       ru: 'Русский',
       en: 'Английский',
       es: 'Испанский',
       tr: 'Турецкий',
-      de: 'Немецкий',
-      vi: 'Вьетнамский'
+      vi: 'Вьетнамский',
+      eo: 'Эсперанто',
+      ko: 'Корейский'
     };
     const LANG_COLORS = {
-      ru: '#4CAF50',
+      ru: '#ffffff',
       en: '#2196F3',
       es: '#FF9800',
       tr: '#f44336',
-      de: '#9c27b0',
-      vi: '#4caf50'
+      vi: '#FFEB3B',
+      eo: '#4CAF50',
+      ko: '#03A9F4'
     };
-    const LANG_LIST = ['ru', 'en', 'es', 'tr', 'de', 'vi'];
+    const LANG_TEXT_COLORS = {
+      ru: '#000000',
+      en: '#ffffff',
+      es: '#ffffff',
+      tr: '#ffffff',
+      vi: '#000000',
+      eo: '#ffffff',
+      ko: '#ffffff'
+    };
+    const LANG_LIST = ['ru', 'en', 'es', 'tr', 'vi', 'eo', 'ko'];
 
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
@@ -659,13 +669,14 @@
         const isCollapsed = block.collapsed !== false;
         const isLive = block.live || false;
         const langLabel = isMobile ? (LANG_FLAGS[block.currentLang] || '🇷🇺') : (LANG_FULL[block.currentLang] || 'Русский');
-        let borderColor = '#4CAF50';
+        let borderColor = '#ffffff';
         if (isLive) borderColor = '#ff9800';
         else if (block.currentLang === 'en') borderColor = '#2196F3';
         else if (block.currentLang === 'es') borderColor = '#FF9800';
         else if (block.currentLang === 'tr') borderColor = '#f44336';
-        else if (block.currentLang === 'de') borderColor = '#9c27b0';
-        else if (block.currentLang === 'vi') borderColor = '#4caf50';
+        else if (block.currentLang === 'vi') borderColor = '#FFEB3B';
+        else if (block.currentLang === 'eo') borderColor = '#4CAF50';
+        else if (block.currentLang === 'ko') borderColor = '#03A9F4';
         const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}`;
         html += `
           <div class="${blockClass}" data-index="${realIndex}" style="border-left-color: ${borderColor};">
@@ -701,12 +712,13 @@
       blocks.forEach((block, index) => {
         const isCollapsed = block.collapsed !== false;
         const langLabel = isMobile ? (LANG_FLAGS[block.currentLang] || '🇷🇺') : (LANG_FULL[block.currentLang] || 'Русский');
-        let borderColor = '#4CAF50';
+        let borderColor = '#ffffff';
         if (block.currentLang === 'en') borderColor = '#2196F3';
         else if (block.currentLang === 'es') borderColor = '#FF9800';
         else if (block.currentLang === 'tr') borderColor = '#f44336';
-        else if (block.currentLang === 'de') borderColor = '#9c27b0';
-        else if (block.currentLang === 'vi') borderColor = '#4caf50';
+        else if (block.currentLang === 'vi') borderColor = '#FFEB3B';
+        else if (block.currentLang === 'eo') borderColor = '#4CAF50';
+        else if (block.currentLang === 'ko') borderColor = '#03A9F4';
         const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'}`;
         html += `
           <div class="${blockClass}" data-archive-index="${index}" style="border-left-color: ${borderColor};">
@@ -748,7 +760,6 @@
         el.addEventListener('pointerdown', function(e) {
           if (e.target.closest('.btn-speak')) return;
           longPressTriggered = false;
-          longPressTarget = { idx, isArchive };
           longPressTimer = setTimeout(() => {
             longPressTriggered = true;
             const data = isArchive ? archiveData : blocksData;
@@ -916,7 +927,6 @@
       menuButtons.innerHTML = '';
       
       if (isMobile) {
-        // Телефон: флаги в 2 ряда по 3
         LANG_LIST.forEach(lang => {
           const btn = document.createElement('button');
           btn.className = 'menu-btn';
@@ -931,16 +941,17 @@
           menuButtons.appendChild(btn);
         });
       } else {
-        // Компьютер: цветные плашки в столбик
         LANG_LIST.forEach(lang => {
           const btn = document.createElement('button');
+          const bgColor = LANG_COLORS[lang] || '#444';
+          const textColor = LANG_TEXT_COLORS[lang] || '#fff';
           btn.style.cssText = `
             width: 100%;
             padding: 10px 20px;
             border: none;
             border-radius: 8px;
-            background: ${LANG_COLORS[lang] || '#444'};
-            color: #fff;
+            background: ${bgColor};
+            color: ${textColor};
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
@@ -1097,11 +1108,8 @@
             text += e.results[i][0].transcript;
           }
           if (!text.trim()) return;
-          
-          // Защита от дублей
           if (text === lastResultText) return;
           if (accumulatedText.endsWith(text.trim())) return;
-          
           lastResultText = text;
           accumulatedText += (accumulatedText ? ' ' : '') + text;
           updateLiveBlock();
