@@ -439,9 +439,10 @@
     let longPressTarget = null;
     let saveBtnPressTimer = null;
 
-    // ===================== ОЗВУЧКА С ПОВТОРНОЙ ПОПЫТКОЙ =====================
+    // ===================== ОЗВУЧКА С ПОВТОРНОЙ ПОПЫТКОЙ И ОСТАНОВКОЙ =====================
     let currentUtterance = null;
     let currentSpeakingBlock = null;
+    let isSpeakingCancelled = false;
 
     function speakBlock(block) {
       if (!block || block.live) return;
@@ -455,17 +456,21 @@
         window.speechSynthesis.cancel();
         currentUtterance = null;
         currentSpeakingBlock = null;
+        isSpeakingCancelled = true;
         document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
         showToast('⏹ Остановлено');
         return;
       }
       window.speechSynthesis.cancel();
       document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
+      isSpeakingCancelled = false;
 
       let attempts = 0;
       const maxAttempts = 2;
 
       function trySpeak() {
+        if (isSpeakingCancelled) return;
+
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = lang;
         const voices = window.speechSynthesis.getVoices();
@@ -476,6 +481,10 @@
         utterance.volume = 1.0;
 
         utterance.onstart = () => {
+          if (isSpeakingCancelled) {
+            window.speechSynthesis.cancel();
+            return;
+          }
           currentSpeakingBlock = block;
           currentUtterance = utterance;
           document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
@@ -486,6 +495,7 @@
         };
 
         utterance.onend = () => {
+          if (isSpeakingCancelled) return;
           currentSpeakingBlock = null;
           currentUtterance = null;
           document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
@@ -493,6 +503,7 @@
         };
 
         utterance.onerror = (e) => {
+          if (isSpeakingCancelled) return;
           if (attempts < maxAttempts) {
             attempts++;
             setTimeout(trySpeak, 1000);
@@ -517,14 +528,16 @@
       };
     }
 
-    // ===================== ПЕРЕВОДЫ =====================
+    // ===================== ПЕРЕВОДЫ (с корейским и эсперанто) =====================
     const LANG_FLAGS = {
       ru: '🇷🇺',
       en: '🇬🇧',
       es: '🇪🇸',
       tr: '🇹🇷',
       de: '🇩🇪',
-      vi: '🇻🇳'
+      vi: '🇻🇳',
+      ko: '🇰🇷',
+      eo: '🇪🇴'
     };
     const LANG_FULL = {
       ru: 'Русский',
@@ -532,9 +545,11 @@
       es: 'Испанский',
       tr: 'Турецкий',
       de: 'Немецкий',
-      vi: 'Вьетнамский'
+      vi: 'Вьетнамский',
+      ko: 'Корейский',
+      eo: 'Эсперанто'
     };
-    const LANG_LIST = ['ru', 'en', 'es', 'tr', 'de', 'vi'];
+    const LANG_LIST = ['ru', 'en', 'es', 'tr', 'de', 'vi', 'ko', 'eo'];
 
     async function translateText(text, targetLang) {
       if (!text || !text.trim()) return text;
@@ -724,6 +739,8 @@
         else if (block.currentLang === 'tr') borderColor = '#f44336';
         else if (block.currentLang === 'de') borderColor = '#9c27b0';
         else if (block.currentLang === 'vi') borderColor = '#4caf50';
+        else if (block.currentLang === 'ko') borderColor = '#00bcd4';
+        else if (block.currentLang === 'eo') borderColor = '#4caf50';
         const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}`;
         
         let statusIcon = '';
@@ -772,6 +789,8 @@
         else if (block.currentLang === 'tr') borderColor = '#f44336';
         else if (block.currentLang === 'de') borderColor = '#9c27b0';
         else if (block.currentLang === 'vi') borderColor = '#4caf50';
+        else if (block.currentLang === 'ko') borderColor = '#00bcd4';
+        else if (block.currentLang === 'eo') borderColor = '#4caf50';
         const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'}`;
         
         let statusIcon = '';
