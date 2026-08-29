@@ -439,7 +439,7 @@
     let longPressTarget = null;
     let saveBtnPressTimer = null;
 
-    // ===================== ОЗВУЧКА =====================
+    // ===================== ОЗВУЧКА С ПОВТОРНОЙ ПОПЫТКОЙ =====================
     let currentUtterance = null;
     let currentSpeakingBlock = null;
 
@@ -461,36 +461,53 @@
       }
       window.speechSynthesis.cancel();
       document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = lang;
-      const voices = window.speechSynthesis.getVoices();
-      const voice = voices.find(v => v.lang.startsWith(lang)) || null;
-      if (voice) utterance.voice = voice;
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      utterance.onstart = () => {
-        currentSpeakingBlock = block;
-        currentUtterance = utterance;
-        document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
-        const btn = document.querySelector(`.btn-speak[data-block-id="${blocksData.indexOf(block)}"][data-archive="false"]`) ||
-                     document.querySelector(`.btn-speak[data-archive-id="${archiveData.indexOf(block)}"][data-archive="true"]`);
-        if (btn) btn.classList.add('playing');
-        showToast(`🔊 ${LANG_FULL[lang] || lang}`);
-      };
-      utterance.onend = () => {
-        currentSpeakingBlock = null;
-        currentUtterance = null;
-        document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
-        showToast('✅ Озвучка завершена');
-      };
-      utterance.onerror = () => {
-        currentSpeakingBlock = null;
-        currentUtterance = null;
-        document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
-        showToast('❌ Ошибка озвучки');
-      };
-      window.speechSynthesis.speak(utterance);
+
+      let attempts = 0;
+      const maxAttempts = 2;
+
+      function trySpeak() {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = lang;
+        const voices = window.speechSynthesis.getVoices();
+        const voice = voices.find(v => v.lang.startsWith(lang)) || null;
+        if (voice) utterance.voice = voice;
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        utterance.onstart = () => {
+          currentSpeakingBlock = block;
+          currentUtterance = utterance;
+          document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
+          const btn = document.querySelector(`.btn-speak[data-block-id="${blocksData.indexOf(block)}"][data-archive="false"]`) ||
+                       document.querySelector(`.btn-speak[data-archive-id="${archiveData.indexOf(block)}"][data-archive="true"]`);
+          if (btn) btn.classList.add('playing');
+          showToast(`🔊 ${LANG_FULL[lang] || lang}`);
+        };
+
+        utterance.onend = () => {
+          currentSpeakingBlock = null;
+          currentUtterance = null;
+          document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
+          showToast('✅ Озвучка завершена');
+        };
+
+        utterance.onerror = (e) => {
+          if (attempts < maxAttempts) {
+            attempts++;
+            setTimeout(trySpeak, 1000);
+          } else {
+            currentSpeakingBlock = null;
+            currentUtterance = null;
+            document.querySelectorAll('.btn-speak').forEach(b => b.classList.remove('playing'));
+            showToast('❌ Ошибка озвучки');
+          }
+        };
+
+        window.speechSynthesis.speak(utterance);
+      }
+
+      trySpeak();
     }
 
     if (window.speechSynthesis) {
@@ -537,7 +554,7 @@
       if (!block.currentLang) block.currentLang = 'ru';
     }
 
-    // ===================== АВТОИСПРАВЛЕНИЕ С СТАТУСОМ =====================
+    // ===================== АВТОИСПРАВЛЕНИЕ =====================
     async function autoFixText(text) {
       if (!text || text.length < 50) return text;
       try {
