@@ -682,7 +682,7 @@
       if (!block.currentLang) block.currentLang = 'ru';
     }
 
-    // ===================== ОБРАБОТЧИК GEMINI =====================
+    // ===================== GEMINI =====================
     async function fixWithGemini(text) {
       if (!text || text.length < 5 || !GEMINI_KEY) return null;
       try {
@@ -706,7 +706,7 @@
       }
     }
 
-    // ===================== АВТОИСПРАВЛЕНИЕ =====================
+    // ===================== АВТОИСПРАВЛЕНИЕ (FALLBACK) =====================
     async function autoFixText(text) {
       if (!text || text.length < 50) return text;
       try {
@@ -1220,7 +1220,10 @@
       }
     });
 
-    // ===================== ЗАПИСЬ =====================
+    // ===================== НОВАЯ ЛОГИКА КНОПКИ ЗАПИСИ =====================
+    let recordPressTimer = null;
+    let isLongPressRecord = false;
+
     function updateRecordButton() {
       if (isRecording) {
         recordBtn.textContent = '■';
@@ -1231,6 +1234,44 @@
       }
     }
 
+    function toggleRecording() {
+      if (isRecording) {
+        stopRec();
+      } else {
+        startRec();
+      }
+    }
+
+    recordBtn.addEventListener('pointerdown', function(e) {
+      isLongPressRecord = false;
+      recordPressTimer = setTimeout(() => {
+        isLongPressRecord = true;
+        // Переключаем режим
+        isGeminiMode = !isGeminiMode;
+        updateRecordButton();
+        showToast(isGeminiMode ? '🧠 Режим Gemini' : '🟢 Обычный режим');
+        // Обновляем цвет живого блока, если идёт запись
+        if (isRecording && liveBlockIndex >= 0) {
+          renderBlocks();
+        }
+      }, 700);
+    });
+
+    recordBtn.addEventListener('pointerup', function(e) {
+      clearTimeout(recordPressTimer);
+      if (!isLongPressRecord) {
+        // Короткое нажатие — переключение записи
+        toggleRecording();
+      }
+      isLongPressRecord = false;
+    });
+
+    recordBtn.addEventListener('pointerleave', function(e) {
+      clearTimeout(recordPressTimer);
+      isLongPressRecord = false;
+    });
+
+    // ===================== ЗАПИСЬ (СТАРАЯ ЛОГИКА) =====================
     function startRec() {
       if (isRecording) return;
       if (!recognition) {
@@ -1315,39 +1356,6 @@
         try { recognition.stop(); } catch(_) {}
       }
     }
-
-    function toggleRec() {
-      if (isRecording) stopRec(); else startRec();
-    }
-
-    // ===================== ДОЛГОЕ НАЖАТИЕ НА ЗАПИСЬ =====================
-    let recordLongPressTimer = null;
-    let recordLongPressTriggered = false;
-
-    recordBtn.addEventListener('pointerdown', function(e) {
-      recordLongPressTriggered = false;
-      recordLongPressTimer = setTimeout(() => {
-        recordLongPressTriggered = true;
-        if (!isRecording) {
-          isGeminiMode = true;
-          updateRecordButton();
-          showToast('🧠 Режим Gemini');
-          startRec();
-        }
-      }, 700);
-    });
-
-    recordBtn.addEventListener('pointerup', function(e) {
-      clearTimeout(recordLongPressTimer);
-      if (!recordLongPressTriggered && !isRecording) {
-        isGeminiMode = false;
-        startRec();
-      }
-    });
-
-    recordBtn.addEventListener('pointerleave', function(e) {
-      clearTimeout(recordLongPressTimer);
-    });
 
     // ===================== ДОЛГОЕ НАЖАТИЕ НА АРХИВ =====================
     let archiveLongPressTimer = null;
@@ -1623,7 +1631,7 @@
     clearArchiveBtn.addEventListener('click', clearArchive);
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); toggleRec(); }
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); toggleRecording(); }
       if (e.key === 'Escape' && isRecording) { e.preventDefault(); stopRec(); }
     });
 
