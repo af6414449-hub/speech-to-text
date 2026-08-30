@@ -281,7 +281,6 @@
     .long-press-menu .menu-btn:active { transform: scale(0.85); }
     .long-press-menu .menu-btn.active-lang { border: 2px solid #42a5f5; }
 
-    /* ===== МОДАЛКА НАСТРОЕК ===== */
     .settings-modal {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -326,9 +325,7 @@
       outline: none;
       transition: 0.2s;
     }
-    .settings-modal input:focus {
-      border-color: #9c27b0;
-    }
+    .settings-modal input:focus { border-color: #9c27b0; }
     .settings-modal .modal-buttons {
       display: flex;
       gap: 12px;
@@ -348,24 +345,18 @@
       background: #9c27b0;
       color: white;
     }
-    .settings-modal .modal-buttons .btn-save-settings:hover {
-      background: #7b1fa2;
-    }
+    .settings-modal .modal-buttons .btn-save-settings:hover { background: #7b1fa2; }
     .settings-modal .modal-buttons .btn-close-settings {
       background: #3a3a3a;
       color: #aaa;
     }
-    .settings-modal .modal-buttons .btn-close-settings:hover {
-      background: #4a4a4a;
-    }
+    .settings-modal .modal-buttons .btn-close-settings:hover { background: #4a4a4a; }
     .settings-modal .key-status {
       font-size: 12px;
       margin-top: 8px;
       color: #666;
     }
-    .settings-modal .key-status.has-key {
-      color: #66bb6a;
-    }
+    .settings-modal .key-status.has-key { color: #66bb6a; }
 
     .screen {
       position: absolute;
@@ -501,7 +492,6 @@
     </div>
   </div>
 
-  <!-- МОДАЛКА НАСТРОЕК -->
   <div class="settings-modal" id="settingsModal">
     <div class="modal-content">
       <div class="modal-title">⚙️ Настройки</div>
@@ -853,7 +843,6 @@
           block.status = 'done';
           return fixed;
         }
-        // fallback
         block.status = 'error';
         return postProcessText(text);
       }
@@ -1232,6 +1221,16 @@
     });
 
     // ===================== ЗАПИСЬ =====================
+    function updateRecordButton() {
+      if (isRecording) {
+        recordBtn.textContent = '■';
+        recordBtn.className = isGeminiMode && GEMINI_KEY ? 'btn-record gemini active' : 'btn-record active';
+      } else {
+        recordBtn.textContent = '▶';
+        recordBtn.className = isGeminiMode && GEMINI_KEY ? 'btn-record gemini' : 'btn-record';
+      }
+    }
+
     function startRec() {
       if (isRecording) return;
       if (!recognition) {
@@ -1290,8 +1289,7 @@
               finalizeBlock(newIdx);
             }
             renderBlocks();
-            recordBtn.textContent = '▶';
-            recordBtn.className = isGeminiMode && GEMINI_KEY ? 'btn-record gemini' : 'btn-record';
+            updateRecordButton();
           }
         };
       }
@@ -1299,8 +1297,7 @@
       isRecording = true;
       recognition._manualStop = false;
       accumulatedText = '';
-      recordBtn.textContent = '■';
-      recordBtn.className = isGeminiMode && GEMINI_KEY ? 'btn-record gemini active' : 'btn-record active';
+      updateRecordButton();
       if (liveBlockIndex === -1) {
         liveBlockIndex = addBlock(' ', true);
       }
@@ -1333,8 +1330,7 @@
         recordLongPressTriggered = true;
         if (!isRecording) {
           isGeminiMode = true;
-          recordBtn.textContent = '▶';
-          recordBtn.className = 'btn-record gemini';
+          updateRecordButton();
           showToast('🧠 Режим Gemini');
           startRec();
         }
@@ -1346,8 +1342,6 @@
       if (!recordLongPressTriggered && !isRecording) {
         isGeminiMode = false;
         startRec();
-      } else if (recordLongPressTriggered && isRecording) {
-        // уже запись
       }
     });
 
@@ -1355,7 +1349,7 @@
       clearTimeout(recordLongPressTimer);
     });
 
-    // ===================== ДОЛГОЕ НАЖАТИЕ НА КНОПКУ АРХИВА (НАСТРОЙКИ) =====================
+    // ===================== ДОЛГОЕ НАЖАТИЕ НА АРХИВ =====================
     let archiveLongPressTimer = null;
     let archiveLongPressTriggered = false;
 
@@ -1363,7 +1357,6 @@
       archiveLongPressTriggered = false;
       archiveLongPressTimer = setTimeout(() => {
         archiveLongPressTriggered = true;
-        // Открыть настройки
         geminiKeyInput.value = GEMINI_KEY || '';
         updateKeyStatus();
         settingsModal.classList.add('active');
@@ -1373,7 +1366,6 @@
     archiveBtn.addEventListener('pointerup', function(e) {
       clearTimeout(archiveLongPressTimer);
       if (!archiveLongPressTriggered) {
-        // Обычное нажатие — открыть архив
         if (archiveData.length > 0) {
           app.classList.add('archive-open');
           renderArchiveBlocks();
@@ -1406,10 +1398,7 @@
         updateKeyStatus();
         showToast('✅ Ключ сохранён');
         settingsModal.classList.remove('active');
-        // Если режим Gemini уже активен — обновляем кнопку
-        if (isGeminiMode) {
-          recordBtn.className = 'btn-record gemini';
-        }
+        updateRecordButton();
       } else {
         showToast('❌ Введите ключ');
       }
