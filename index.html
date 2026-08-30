@@ -62,7 +62,12 @@
       background: #2d241a;
       border-left-color: #ff9800;
     }
+    .block.live.gemini-live {
+      background: #2a1a3a;
+      border-left-color: #9c27b0;
+    }
     .block.live .block-time { color: #ff9800; }
+    .block.live.gemini-live .block-time { color: #9c27b0; }
     .block.collapsed .block-text {
       display: -webkit-box;
       -webkit-line-clamp: 1;
@@ -204,10 +209,19 @@
       justify-content: center;
       line-height: 1;
       padding-bottom: 2px;
+      transition: 0.3s;
     }
     .btn-record.active {
       background: #f44336;
       box-shadow: 0 4px 12px rgba(244,67,54,0.3);
+    }
+    .btn-record.gemini {
+      background: #9c27b0;
+      box-shadow: 0 4px 12px rgba(156,39,176,0.4);
+    }
+    .btn-record.gemini.active {
+      background: #7b1fa2;
+      box-shadow: 0 4px 12px rgba(123,31,162,0.5);
     }
     .btn-back {
       width: 56px;
@@ -266,6 +280,92 @@
     }
     .long-press-menu .menu-btn:active { transform: scale(0.85); }
     .long-press-menu .menu-btn.active-lang { border: 2px solid #42a5f5; }
+
+    /* ===== МОДАЛКА НАСТРОЕК ===== */
+    .settings-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .settings-modal.active { display: flex; }
+    .settings-modal .modal-content {
+      background: #1a1a1a;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .settings-modal .modal-title {
+      color: #e8e8e8;
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .settings-modal label {
+      color: #aaa;
+      font-size: 14px;
+      display: block;
+      margin-bottom: 6px;
+    }
+    .settings-modal input {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #2a2a2a;
+      color: #e8e8e8;
+      font-size: 14px;
+      font-family: monospace;
+      outline: none;
+      transition: 0.2s;
+    }
+    .settings-modal input:focus {
+      border-color: #9c27b0;
+    }
+    .settings-modal .modal-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      justify-content: flex-end;
+    }
+    .settings-modal .modal-buttons button {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .settings-modal .modal-buttons .btn-save-settings {
+      background: #9c27b0;
+      color: white;
+    }
+    .settings-modal .modal-buttons .btn-save-settings:hover {
+      background: #7b1fa2;
+    }
+    .settings-modal .modal-buttons .btn-close-settings {
+      background: #3a3a3a;
+      color: #aaa;
+    }
+    .settings-modal .modal-buttons .btn-close-settings:hover {
+      background: #4a4a4a;
+    }
+    .settings-modal .key-status {
+      font-size: 12px;
+      margin-top: 8px;
+      color: #666;
+    }
+    .settings-modal .key-status.has-key {
+      color: #66bb6a;
+    }
 
     .screen {
       position: absolute;
@@ -368,6 +468,7 @@
       .btn-clear, .btn-save, .btn-archive, .btn-back { width: 48px; height: 48px; font-size: 20px; }
       .btn-record { width: 64px; height: 64px; font-size: 28px; }
       .buttons { gap: 10px; padding-top: 10px; }
+      .settings-modal .modal-content { padding: 20px; }
     }
     @media (max-height: 500px) {
       .block-text { font-size: 13px; line-height: 1.4; }
@@ -400,6 +501,20 @@
     </div>
   </div>
 
+  <!-- МОДАЛКА НАСТРОЕК -->
+  <div class="settings-modal" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-title">⚙️ Настройки</div>
+      <label for="geminiKeyInput">API-ключ Gemini</label>
+      <input type="text" id="geminiKeyInput" placeholder="Введите ключ Gemini..." />
+      <div class="key-status" id="keyStatus">🔑 Ключ не сохранён</div>
+      <div class="modal-buttons">
+        <button class="btn-close-settings" id="closeSettings">Отмена</button>
+        <button class="btn-save-settings" id="saveSettings">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
   <div class="long-press-menu" id="longPressMenu">
     <div class="menu-buttons" id="menuButtons"></div>
   </div>
@@ -421,10 +536,18 @@
     const toast = document.getElementById('toast');
     const longPressMenu = document.getElementById('longPressMenu');
     const menuButtons = document.getElementById('menuButtons');
+    const settingsModal = document.getElementById('settingsModal');
+    const geminiKeyInput = document.getElementById('geminiKeyInput');
+    const saveSettingsBtn = document.getElementById('saveSettings');
+    const closeSettingsBtn = document.getElementById('closeSettings');
+    const keyStatus = document.getElementById('keyStatus');
+
+    let GEMINI_KEY = localStorage.getItem('gemini_key') || '';
 
     const POLLINATIONS_KEY = 'sk_DiaJdbFpPQAJP6uCQOZHFb5G1VWRmZjt';
 
     let isRecording = false;
+    let isGeminiMode = false;
     let blocksData = [];
     let archiveData = [];
     let recognition = null;
@@ -439,7 +562,7 @@
     let longPressTarget = null;
     let saveBtnPressTimer = null;
 
-    // ===================== ОЗВУЧКА С ПОВТОРНОЙ ПОПЫТКОЙ И ОСТАНОВКОЙ =====================
+    // ===================== ОЗВУЧКА =====================
     let currentUtterance = null;
     let currentSpeakingBlock = null;
     let isSpeakingCancelled = false;
@@ -528,7 +651,7 @@
       };
     }
 
-    // ===================== ПЕРЕВОДЫ (с корейским и эсперанто) =====================
+    // ===================== ПЕРЕВОДЫ =====================
     const LANG_FLAGS = {
       ru: '🇷🇺',
       en: '🇬🇧',
@@ -567,6 +690,30 @@
     function ensureBlockHasTranslations(block) {
       if (!block.translations) block.translations = {};
       if (!block.currentLang) block.currentLang = 'ru';
+    }
+
+    // ===================== ОБРАБОТЧИК GEMINI =====================
+    async function fixWithGemini(text) {
+      if (!text || text.length < 5 || !GEMINI_KEY) return null;
+      try {
+        const prompt = `Исправь орфографию и пунктуацию в этом тексте. Сделай текст читаемым. Верни только исправленный текст. Текст:\n\n${text}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{ text: prompt }]
+            }]
+          })
+        });
+        if (!response.ok) throw new Error('Gemini API error');
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || text;
+      } catch (e) {
+        console.warn('Gemini failed:', e);
+        return null;
+      }
     }
 
     // ===================== АВТОИСПРАВЛЕНИЕ =====================
@@ -697,7 +844,20 @@
         block.status = 'done';
         return postProcessText(text);
       }
-      
+
+      if (isGeminiMode && GEMINI_KEY) {
+        block.status = 'processing';
+        renderBlocks();
+        const fixed = await fixWithGemini(text);
+        if (fixed !== null && fixed !== text) {
+          block.status = 'done';
+          return fixed;
+        }
+        // fallback
+        block.status = 'error';
+        return postProcessText(text);
+      }
+
       block.status = 'processing';
       renderBlocks();
       
@@ -733,15 +893,22 @@
         const isLive = block.live || false;
         const langLabel = LANG_FLAGS[block.currentLang] || '🇷🇺';
         let borderColor = '#4CAF50';
-        if (isLive) borderColor = '#ff9800';
-        else if (block.currentLang === 'en') borderColor = '#2196F3';
+        let liveClass = '';
+        if (isLive) {
+          if (isGeminiMode && GEMINI_KEY) {
+            borderColor = '#9c27b0';
+            liveClass = 'gemini-live';
+          } else {
+            borderColor = '#ff9800';
+          }
+        } else if (block.currentLang === 'en') borderColor = '#2196F3';
         else if (block.currentLang === 'es') borderColor = '#ff9800';
         else if (block.currentLang === 'tr') borderColor = '#f44336';
         else if (block.currentLang === 'de') borderColor = '#9c27b0';
         else if (block.currentLang === 'vi') borderColor = '#4caf50';
         else if (block.currentLang === 'ko') borderColor = '#00bcd4';
         else if (block.currentLang === 'eo') borderColor = '#4caf50';
-        const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''}`;
+        const blockClass = `block ${isCollapsed ? 'collapsed' : 'expanded'} ${isLive ? 'live' : ''} ${liveClass}`;
         
         let statusIcon = '';
         if (!isLive) {
@@ -1064,6 +1231,200 @@
       }
     });
 
+    // ===================== ЗАПИСЬ =====================
+    function startRec() {
+      if (isRecording) return;
+      if (!recognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'ru-RU';
+        recognition.continuous = true;
+        recognition.interimResults = false;
+
+        recognition.onresult = function(e) {
+          let text = '';
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            text += e.results[i][0].transcript;
+          }
+          if (!text.trim()) return;
+          const tail = accumulatedText.slice(-20);
+          if (tail.includes(text.trim()) && text.length < 30) return;
+          accumulatedText += accumulatedText ? ' ' + text : text;
+          updateLiveBlock();
+        };
+
+        recognition.onsoundend = function() {
+          if (accumulatedText && !accumulatedText.match(/[.!?]$/)) {
+            accumulatedText += '.';
+            accumulatedText = capitalizeAfterPunctuation(accumulatedText);
+            updateLiveBlock();
+          }
+        };
+
+        recognition.onerror = function(e) {
+          if (e.error === 'not-allowed') {
+            showToast('❌ Нет доступа к микрофону');
+            stopRec();
+          } else if (e.error === 'audio-capture') {
+            showToast('❌ Микрофон недоступен');
+            stopRec();
+          }
+        };
+
+        recognition.onend = function() {
+          if (isRecording && !recognition._manualStop) {
+            clearTimeout(restartTimer);
+            restartTimer = setTimeout(() => {
+              if (isRecording) try { recognition.start(); } catch(_) {}
+            }, 300);
+          } else {
+            isRecording = false;
+            recognition._manualStop = false;
+            const liveIdx = liveBlockIndex;
+            if (liveBlockIndex >= 0) {
+              blocksData.splice(liveBlockIndex, 1);
+              liveBlockIndex = -1;
+            }
+            if (accumulatedText.trim()) {
+              const newIdx = addBlock(accumulatedText, false);
+              accumulatedText = '';
+              finalizeBlock(newIdx);
+            }
+            renderBlocks();
+            recordBtn.textContent = '▶';
+            recordBtn.className = isGeminiMode && GEMINI_KEY ? 'btn-record gemini' : 'btn-record';
+          }
+        };
+      }
+
+      isRecording = true;
+      recognition._manualStop = false;
+      accumulatedText = '';
+      recordBtn.textContent = '■';
+      recordBtn.className = isGeminiMode && GEMINI_KEY ? 'btn-record gemini active' : 'btn-record active';
+      if (liveBlockIndex === -1) {
+        liveBlockIndex = addBlock(' ', true);
+      }
+      renderBlocks();
+      scrollToBottom();
+      try { recognition.start(); } catch(_) {}
+    }
+
+    function stopRec() {
+      if (!isRecording) return;
+      isRecording = false;
+      if (recognition) {
+        recognition._manualStop = true;
+        clearTimeout(restartTimer);
+        try { recognition.stop(); } catch(_) {}
+      }
+    }
+
+    function toggleRec() {
+      if (isRecording) stopRec(); else startRec();
+    }
+
+    // ===================== ДОЛГОЕ НАЖАТИЕ НА ЗАПИСЬ =====================
+    let recordLongPressTimer = null;
+    let recordLongPressTriggered = false;
+
+    recordBtn.addEventListener('pointerdown', function(e) {
+      recordLongPressTriggered = false;
+      recordLongPressTimer = setTimeout(() => {
+        recordLongPressTriggered = true;
+        if (!isRecording) {
+          isGeminiMode = true;
+          recordBtn.textContent = '▶';
+          recordBtn.className = 'btn-record gemini';
+          showToast('🧠 Режим Gemini');
+          startRec();
+        }
+      }, 700);
+    });
+
+    recordBtn.addEventListener('pointerup', function(e) {
+      clearTimeout(recordLongPressTimer);
+      if (!recordLongPressTriggered && !isRecording) {
+        isGeminiMode = false;
+        startRec();
+      } else if (recordLongPressTriggered && isRecording) {
+        // уже запись
+      }
+    });
+
+    recordBtn.addEventListener('pointerleave', function(e) {
+      clearTimeout(recordLongPressTimer);
+    });
+
+    // ===================== ДОЛГОЕ НАЖАТИЕ НА КНОПКУ АРХИВА (НАСТРОЙКИ) =====================
+    let archiveLongPressTimer = null;
+    let archiveLongPressTriggered = false;
+
+    archiveBtn.addEventListener('pointerdown', function(e) {
+      archiveLongPressTriggered = false;
+      archiveLongPressTimer = setTimeout(() => {
+        archiveLongPressTriggered = true;
+        // Открыть настройки
+        geminiKeyInput.value = GEMINI_KEY || '';
+        updateKeyStatus();
+        settingsModal.classList.add('active');
+      }, 700);
+    });
+
+    archiveBtn.addEventListener('pointerup', function(e) {
+      clearTimeout(archiveLongPressTimer);
+      if (!archiveLongPressTriggered) {
+        // Обычное нажатие — открыть архив
+        if (archiveData.length > 0) {
+          app.classList.add('archive-open');
+          renderArchiveBlocks();
+        } else {
+          showToast('Архив пуст');
+        }
+      }
+    });
+
+    archiveBtn.addEventListener('pointerleave', function(e) {
+      clearTimeout(archiveLongPressTimer);
+    });
+
+    // ===================== НАСТРОЙКИ =====================
+    function updateKeyStatus() {
+      if (GEMINI_KEY) {
+        keyStatus.textContent = '✅ Ключ сохранён';
+        keyStatus.className = 'key-status has-key';
+      } else {
+        keyStatus.textContent = '🔑 Ключ не сохранён';
+        keyStatus.className = 'key-status';
+      }
+    }
+
+    saveSettingsBtn.addEventListener('click', function() {
+      const key = geminiKeyInput.value.trim();
+      if (key) {
+        GEMINI_KEY = key;
+        localStorage.setItem('gemini_key', key);
+        updateKeyStatus();
+        showToast('✅ Ключ сохранён');
+        settingsModal.classList.remove('active');
+        // Если режим Gemini уже активен — обновляем кнопку
+        if (isGeminiMode) {
+          recordBtn.className = 'btn-record gemini';
+        }
+      } else {
+        showToast('❌ Введите ключ');
+      }
+    });
+
+    closeSettingsBtn.addEventListener('click', function() {
+      settingsModal.classList.remove('active');
+    });
+
+    settingsModal.addEventListener('click', function(e) {
+      if (e.target === this) {
+        settingsModal.classList.remove('active');
+      }
+    });
+
     // ===================== ОСТАЛЬНЫЕ КНОПКИ =====================
     function updateButtons() {
       const hasBlocks = blocksData.filter(b => !b.live).length > 0;
@@ -1149,97 +1510,6 @@
         renderBlocks();
         scrollToBottom();
       }
-    }
-
-    function startRec() {
-      if (isRecording) return;
-      if (!recognition) {
-        recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU';
-        recognition.continuous = true;
-        recognition.interimResults = false;
-
-        recognition.onresult = function(e) {
-          let text = '';
-          for (let i = e.resultIndex; i < e.results.length; i++) {
-            text += e.results[i][0].transcript;
-          }
-          if (!text.trim()) return;
-          const tail = accumulatedText.slice(-20);
-          if (tail.includes(text.trim()) && text.length < 30) return;
-          accumulatedText += accumulatedText ? ' ' + text : text;
-          updateLiveBlock();
-        };
-
-        recognition.onsoundend = function() {
-          if (accumulatedText && !accumulatedText.match(/[.!?]$/)) {
-            accumulatedText += '.';
-            accumulatedText = capitalizeAfterPunctuation(accumulatedText);
-            updateLiveBlock();
-          }
-        };
-
-        recognition.onerror = function(e) {
-          if (e.error === 'not-allowed') {
-            showToast('❌ Нет доступа к микрофону');
-            stopRec();
-          } else if (e.error === 'audio-capture') {
-            showToast('❌ Микрофон недоступен');
-            stopRec();
-          }
-        };
-
-        recognition.onend = function() {
-          if (isRecording && !recognition._manualStop) {
-            clearTimeout(restartTimer);
-            restartTimer = setTimeout(() => {
-              if (isRecording) try { recognition.start(); } catch(_) {}
-            }, 300);
-          } else {
-            isRecording = false;
-            recognition._manualStop = false;
-            const liveIdx = liveBlockIndex;
-            if (liveBlockIndex >= 0) {
-              blocksData.splice(liveBlockIndex, 1);
-              liveBlockIndex = -1;
-            }
-            if (accumulatedText.trim()) {
-              const newIdx = addBlock(accumulatedText, false);
-              accumulatedText = '';
-              finalizeBlock(newIdx);
-            }
-            renderBlocks();
-            recordBtn.textContent = '▶';
-            recordBtn.className = 'btn-record';
-          }
-        };
-      }
-
-      isRecording = true;
-      recognition._manualStop = false;
-      accumulatedText = '';
-      recordBtn.textContent = '■';
-      recordBtn.className = 'btn-record active';
-      if (liveBlockIndex === -1) {
-        liveBlockIndex = addBlock(' ', true);
-      }
-      renderBlocks();
-      scrollToBottom();
-      try { recognition.start(); } catch(_) {}
-    }
-
-    function stopRec() {
-      if (!isRecording) return;
-      isRecording = false;
-      if (recognition) {
-        recognition._manualStop = true;
-        clearTimeout(restartTimer);
-        try { recognition.stop(); } catch(_) {}
-      }
-    }
-
-    function toggleRec() {
-      if (isRecording) stopRec(); else startRec();
     }
 
     function getFullTextWithTimestamps(data) {
@@ -1347,12 +1617,6 @@
       }
     });
 
-    archiveBtn.addEventListener('click', function() {
-      if (archiveData.length === 0) return;
-      app.classList.add('archive-open');
-      renderArchiveBlocks();
-    });
-
     backFromArchiveBtn.addEventListener('click', function() {
       app.classList.remove('archive-open');
     });
@@ -1369,13 +1633,12 @@
 
     clearArchiveBtn.addEventListener('click', clearArchive);
 
-    recordBtn.addEventListener('click', toggleRec);
-
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); toggleRec(); }
       if (e.key === 'Escape' && isRecording) { e.preventDefault(); stopRec(); }
     });
 
+    updateKeyStatus();
     loadFromStorage();
   })();
 </script>
